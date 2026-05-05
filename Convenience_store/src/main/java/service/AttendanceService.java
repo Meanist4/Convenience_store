@@ -10,6 +10,7 @@ import java.util.Optional;
 
 import entity.Attendance;
 import entity.Employee;
+import exception.NotFoundException;
 import repository.AttendanceRepository;
 import repository.EmployeeRepository;
 import util.BarcodeUtil;
@@ -144,7 +145,7 @@ public class AttendanceService {
     public Attendance processAttendance(String barcode) throws SQLException {
         Optional<Employee> empOpt = BarcodeUtil.scanEmployee(barcode);
         if (empOpt.isEmpty())
-            throw new IllegalArgumentException("Không tìm thấy nhân viên với barcode: " + barcode);
+            throw new NotFoundException("Không tìm thấy nhân viên với barcode: " + barcode);
 
         int employeeId = empOpt.get().getId();
         String status = getAttendanceStatus(employeeId);

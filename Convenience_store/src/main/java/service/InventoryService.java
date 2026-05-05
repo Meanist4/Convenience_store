@@ -12,6 +12,8 @@ import repository.NotificationRepository;
 import repository.ProductRepository;
 import repository.StoreRepository;
 import util.BarcodeUtil;
+import exception.NotFoundException;
+import exception.ValidationException;
 
 public class InventoryService {
 
@@ -106,11 +108,11 @@ public class InventoryService {
 
     public void processInventoryScan(String barcode, int storeId, int quantity) throws SQLException {
         if (quantity <= 0)
-            throw new IllegalArgumentException("Số lượng scan phải > 0");
+            throw new ValidationException("Số lượng scan phải > 0");
 
         Optional<ProductUnit> unitOpt = BarcodeUtil.scanProduct(barcode);
         if (unitOpt.isEmpty())
-            throw new IllegalArgumentException("Không tìm thấy sản phẩm với barcode: " + barcode);
+            throw new NotFoundException("Không tìm thấy sản phẩm với barcode: " + barcode);
 
         ProductUnit unit = unitOpt.get();
         adjustStock(storeId, unit.getProductId(), quantity);

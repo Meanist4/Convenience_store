@@ -10,6 +10,8 @@ import entity.Invoice;
 import entity.InvoiceDetail;
 import entity.ProductUnit;
 import entity.StoreInventory;
+import exception.NotFoundException;
+import exception.ValidationException;
 import repository.InventoryRepository;
 import repository.InvoiceDetailRepository;
 import repository.InvoiceRepository;
@@ -95,11 +97,11 @@ public class InvoiceService {
 
     public Invoice processSale(int storeId, int employeeId, String barcode, int quantity) throws SQLException {
         if (quantity <= 0)
-            throw new IllegalArgumentException("Số lượng phải > 0");
+            throw new ValidationException("Số lượng phải > 0");
 
         Optional<ProductUnit> unitOpt = BarcodeUtil.scanProduct(barcode);
         if (unitOpt.isEmpty())
-            throw new IllegalArgumentException("Không tìm thấy sản phẩm với barcode: " + barcode);
+            throw new NotFoundException("Không tìm thấy sản phẩm với barcode: " + barcode);
 
         ProductUnit unit = unitOpt.get();
 

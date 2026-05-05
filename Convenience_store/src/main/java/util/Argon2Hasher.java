@@ -1,4 +1,4 @@
-package convenience_store;
+package util;
 
 import de.mkammerer.argon2.Argon2;
 import de.mkammerer.argon2.Argon2Factory;

@@ -12,6 +12,7 @@ import entity.Attendance;
 import entity.Employee;
 import repository.AttendanceRepository;
 import repository.EmployeeRepository;
+import util.BarcodeUtil;
 
 public class AttendanceService {
 
@@ -141,7 +142,7 @@ public class AttendanceService {
     }
 
     public Attendance processAttendance(String barcode) throws SQLException {
-        Optional<Employee> empOpt = employeeRepo.findByBarcode(barcode);
+        Optional<Employee> empOpt = BarcodeUtil.scanEmployee(barcode);
         if (empOpt.isEmpty())
             throw new IllegalArgumentException("Không tìm thấy nhân viên với barcode: " + barcode);
 
@@ -165,4 +166,4 @@ public class AttendanceService {
             default -> throw new IllegalStateException("Trạng thái không hợp lệ: " + status);
         }
     }
-}    
+}

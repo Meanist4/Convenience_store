@@ -10,8 +10,8 @@ import entity.StoreInventory;
 import repository.InventoryRepository;
 import repository.NotificationRepository;
 import repository.ProductRepository;
-import repository.ProductUnitRepository;
 import repository.StoreRepository;
+import util.BarcodeUtil;
 
 public class InventoryService {
 
@@ -19,7 +19,6 @@ public class InventoryService {
     private final StoreRepository storeRepo = new StoreRepository();
     private final ProductRepository productRepo = new ProductRepository();
     private final NotificationRepository notificationRepo = new NotificationRepository();
-    private final ProductUnitRepository unitRepo = new ProductUnitRepository();
 
     public List<StoreInventory> getInventoryByStore(int storeId) throws SQLException {
         return inventoryRepo.findByStoreId(storeId);
@@ -109,7 +108,7 @@ public class InventoryService {
         if (quantity <= 0)
             throw new IllegalArgumentException("Số lượng scan phải > 0");
 
-        Optional<ProductUnit> unitOpt = unitRepo.findByBarcode(barcode);
+        Optional<ProductUnit> unitOpt = BarcodeUtil.scanProduct(barcode);
         if (unitOpt.isEmpty())
             throw new IllegalArgumentException("Không tìm thấy sản phẩm với barcode: " + barcode);
 

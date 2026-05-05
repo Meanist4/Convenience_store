@@ -13,13 +13,12 @@ import entity.StoreInventory;
 import repository.InventoryRepository;
 import repository.InvoiceDetailRepository;
 import repository.InvoiceRepository;
-import repository.ProductUnitRepository;
+import util.BarcodeUtil;
 
 public class InvoiceService {
 
     private final InvoiceRepository invoiceRepo = new InvoiceRepository();
     private final InvoiceDetailRepository detailRepo = new InvoiceDetailRepository();
-    private final ProductUnitRepository unitRepo = new ProductUnitRepository();
     private final InventoryRepository inventoryRepo = new InventoryRepository();
 
     public List<Invoice> getAllInvoices() throws SQLException {
@@ -98,7 +97,7 @@ public class InvoiceService {
         if (quantity <= 0)
             throw new IllegalArgumentException("Số lượng phải > 0");
 
-        Optional<ProductUnit> unitOpt = unitRepo.findByBarcode(barcode);
+        Optional<ProductUnit> unitOpt = BarcodeUtil.scanProduct(barcode);
         if (unitOpt.isEmpty())
             throw new IllegalArgumentException("Không tìm thấy sản phẩm với barcode: " + barcode);
 

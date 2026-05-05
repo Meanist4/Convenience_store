@@ -1,20 +1,18 @@
 package service;
 
-import entity.Admin;
-import entity.Manager;
-import entity.UserSession;
-import repository.AuthRepository;
-import repository.UserSessionRepository;
-import convenience_store.Argon2Hasher; // Import lớp tiện ích của bạn
-
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.Optional;
 
+import convenience_store.Argon2Hasher;
+import entity.Admin; // Import lớp tiện ích của bạn
+import entity.Manager;
+import entity.UserSession;
+import repository.AuthRepository;
+
 public class AuthService {
 
     private final AuthRepository authRepo = new AuthRepository();
-    private final UserSessionRepository sessionRepo = new UserSessionRepository();
     private final UserSessionService sessionService = new UserSessionService();
 
     public class LoginResponse {

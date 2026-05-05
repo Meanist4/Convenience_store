@@ -1,5 +1,6 @@
 package repository;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -162,6 +163,19 @@ public class PurchaseOrderRepository {
             ps.setString(1, status);
             ps.setTimestamp(2, status.equals("received") ? new Timestamp(System.currentTimeMillis()) : null);
             ps.setInt(3, id);
+            ps.executeUpdate();
+        }
+    }
+
+    public void updateTotal(int id, BigDecimal total) throws SQLException {
+        if (total == null || total.compareTo(BigDecimal.ZERO) < 0)
+            throw new IllegalArgumentException("Tổng tiền không hợp lệ");
+
+        String sql = "UPDATE purchase_orders SET total_amount = ? WHERE id = ?";
+        try (Connection conn = DBConnection.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setBigDecimal(1, total);
+            ps.setInt(2, id);
             ps.executeUpdate();
         }
     }

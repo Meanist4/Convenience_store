@@ -92,7 +92,6 @@ public class PurchaseOrderService {
                     d.getProductId());
 
             if (invOpt.isPresent()) {
-                entity.StoreInventory inv = invOpt.get();
                 inventoryRepo.adjustQuantity(order.getStoreId(), d.getProductId(), d.getQuantity());
             } else {
                 entity.StoreInventory newInv = new entity.StoreInventory(order.getStoreId(), d.getProductId(),
@@ -128,7 +127,7 @@ public class PurchaseOrderService {
 
         // Cập nhật total amount
         BigDecimal newTotal = detailRepo.sumSubtotalByOrderId(orderId);
-        orderRepo.updateStatus(orderId, order.getStatus()); // Update vẫn gọi hàm này để keep logic
+        orderRepo.updateTotal(orderId, newTotal);
     }
 
     public void removeDetailFromOrder(int detailId) throws SQLException {

@@ -1,9 +1,5 @@
 package service;
 
-import entity.Attendance;
-import repository.AttendanceRepository;
-import repository.EmployeeRepository;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Date;
@@ -11,6 +7,11 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
+
+import entity.Attendance;
+import entity.Employee;
+import repository.AttendanceRepository;
+import repository.EmployeeRepository;
 
 public class AttendanceService {
 
@@ -38,14 +39,14 @@ public class AttendanceService {
         }
 
         if (a.getBreakStart() != null && a.getBreakEnd() == null) {
-            return "ON_BREAK"; 
+            return "ON_BREAK";
         }
 
         if (a.getBreakStart() == null) {
-            return "WORKING_BEFORE_BREAK"; 
+            return "WORKING_BEFORE_BREAK";
         }
 
-        return "WORKING_AFTER_BREAK"; 
+        return "WORKING_AFTER_BREAK";
     }
 
     public Attendance checkIn(int employeeId) throws SQLException {
@@ -139,7 +140,29 @@ public class AttendanceService {
         attendanceRepo.updateStatus(id, status);
     }
 
-    public BigDecimal getMonthlyWorkHours(int employeeId, int year, int month) throws SQLException {
-        return attendanceRepo.sumWorkHoursByEmployeeAndMonth(employeeId, year, month);
+    public Attendance processAttendance(String barcode) throws SQLException {
+        Optional<Employee> empOpt = employeeRepo.findByBarcode(barcode);
+        if (empOpt.isEmpty())
+            throw new IllegalArgumentException("Không tìm thấy nhân viên với barcode: " + barcode);
+
+        int employeeId = empOpt.get().getId();
+        String status = getAttendanceStatus(employeeId);
+
+        switch (status) {
+            case "NOT_CHECKED_IN" -> {
+                return checkIn(employeeId);
+            }
+            case "WORKING_BEFORE_BREAK" -> {
+                return startBreak(employeeId);
+            }
+            case "ON_BREAK" -> {
+                return endBreak(employeeId);
+            }
+            case "WORKING_AFTER_BREAK" -> {
+                return checkOut(employeeId);
+            }
+            case "ALREADY_CHECKED_OUT" -> throw new IllegalStateException("Ca làm đã kết thúc. Không thể scan thêm.");
+            default -> throw new IllegalStateException("Trạng thái không hợp lệ: " + status);
+        }
     }
-}
+}    

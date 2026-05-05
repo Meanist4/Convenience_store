@@ -1,16 +1,17 @@
 package service;
 
-import entity.StoreInventory;
-import repository.InventoryRepository;
-import repository.ProductRepository;
-import repository.StoreRepository;
-
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 
 import entity.Notification;
+import entity.ProductUnit;
+import entity.StoreInventory;
+import repository.InventoryRepository;
 import repository.NotificationRepository;
+import repository.ProductRepository;
+import repository.ProductUnitRepository;
+import repository.StoreRepository;
 
 public class InventoryService {
 
@@ -18,6 +19,7 @@ public class InventoryService {
     private final StoreRepository storeRepo = new StoreRepository();
     private final ProductRepository productRepo = new ProductRepository();
     private final NotificationRepository notificationRepo = new NotificationRepository();
+    private final ProductUnitRepository unitRepo = new ProductUnitRepository();
 
     public List<StoreInventory> getInventoryByStore(int storeId) throws SQLException {
         return inventoryRepo.findByStoreId(storeId);
@@ -101,5 +103,17 @@ public class InventoryService {
     public void removeInventory(int storeId, int productId) throws SQLException {
         if (!inventoryRepo.delete(storeId, productId))
             throw new IllegalArgumentException("Không tìm thấy bản ghi tồn kho để xóa");
+    }
+
+    public void processInventoryScan(String barcode, int storeId, int quantity) throws SQLException {
+        if (quantity <= 0)
+            throw new IllegalArgumentException("Số lượng scan phải > 0");
+
+        Optional<ProductUnit> unitOpt = unitRepo.findByBarcode(barcode);
+        if (unitOpt.isEmpty())
+            throw new IllegalArgumentException("Không tìm thấy sản phẩm với barcode: " + barcode);
+
+        ProductUnit unit = unitOpt.get();
+        adjustStock(storeId, unit.getProductId(), quantity);
     }
 }

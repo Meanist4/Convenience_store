@@ -1,20 +1,26 @@
 package service;
 
-import entity.Invoice;
-import entity.InvoiceDetail;
-import repository.InvoiceDetailRepository;
-import repository.InvoiceRepository;
-
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
 
+import entity.Invoice;
+import entity.InvoiceDetail;
+import entity.ProductUnit;
+import entity.StoreInventory;
+import repository.InventoryRepository;
+import repository.InvoiceDetailRepository;
+import repository.InvoiceRepository;
+import repository.ProductUnitRepository;
+
 public class InvoiceService {
 
     private final InvoiceRepository invoiceRepo = new InvoiceRepository();
     private final InvoiceDetailRepository detailRepo = new InvoiceDetailRepository();
+    private final ProductUnitRepository unitRepo = new ProductUnitRepository();
+    private final InventoryRepository inventoryRepo = new InventoryRepository();
 
     public List<Invoice> getAllInvoices() throws SQLException {
         return invoiceRepo.findAll();
@@ -86,5 +92,48 @@ public class InvoiceService {
             throw new IllegalArgumentException("Tổng tiền không hợp lệ");
         if (!invoiceRepo.updateTotalAmount(id, totalAmount))
             throw new RuntimeException("Cập nhật tổng tiền thất bại");
+    }
+
+    public Invoice processSale(int storeId, int employeeId, String barcode, int quantity) throws SQLException {
+        if (quantity <= 0)
+            throw new IllegalArgumentException("Số lượng phải > 0");
+
+        Optional<ProductUnit> unitOpt = unitRepo.findByBarcode(barcode);
+        if (unitOpt.isEmpty())
+            throw new IllegalArgumentException("Không tìm thấy sản phẩm với barcode: " + barcode);
+
+        ProductUnit unit = unitOpt.get();
+
+        // Kiểm tra tồn kho
+        Optional<StoreInventory> invOpt = inventoryRepo.findByStoreAndProduct(storeId, unit.getProductId());
+        if (invOpt.isEmpty() || invOpt.get().getQuantity() < quantity)
+            throw new IllegalStateException("Không đủ tồn kho cho sản phẩm ID " + unit.getProductId());
+
+        BigDecimal subtotal = unit.getSellingPrice().multiply(BigDecimal.valueOf(quantity));
+
+        Invoice invoice = new Invoice();
+        invoice.setStoreId(storeId);
+        invoice.setEmployeeId(employeeId);
+        invoice.setTotalAmount(subtotal);
+        invoice.setStatus("completed");
+
+        if (!invoiceRepo.insert(invoice))
+            throw new RuntimeException("Tạo hóa đơn thất bại");
+
+        InvoiceDetail detail = new InvoiceDetail();
+        detail.setInvoiceId(invoice.getId());
+        detail.setProductId(unit.getProductId());
+        detail.setUnitId(unit.getId());
+        detail.setQuantity(quantity);
+        detail.setPriceAtSale(unit.getSellingPrice());
+        detail.setSubtotal(subtotal);
+
+        if (!detailRepo.insert(detail))
+            throw new RuntimeException("Thêm chi tiết hóa đơn thất bại");
+
+        // Cập nhật tồn kho
+        inventoryRepo.adjustQuantity(storeId, unit.getProductId(), -quantity);
+
+        return invoice;
     }
 }

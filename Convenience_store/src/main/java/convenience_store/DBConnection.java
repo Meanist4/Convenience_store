@@ -4,16 +4,16 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
-
 public class DBConnection {
 
-    private static final String DB_URL  = "jdbc:mysql://localhost:3306/store_management?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
+    private static final String DB_URL = "jdbc:mysql://localhost:3306/store_management?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
     private static final String DB_USER = "root";
-    private static final String DB_PASS = "";
+    private static final String DB_PASS = "15739537";
 
     private static Connection connection;
 
-    private DBConnection() {}
+    private DBConnection() {
+    }
 
     public static Connection getConnection() throws SQLException {
         if (connection == null || connection.isClosed()) {
@@ -31,7 +31,8 @@ public class DBConnection {
         if (connection != null) {
             try {
                 connection.close();
-            } catch (SQLException ignored) {}
+            } catch (SQLException ignored) {
+            }
             connection = null;
         }
     }

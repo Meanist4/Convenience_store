@@ -13,13 +13,14 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import service.InvoiceService;
+import service.InvoiceServiceImpl;
 
 @Path("/sales")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class SalesController {
 
-    private final InvoiceService invoiceService = new InvoiceService();
+    private final InvoiceService invoiceService = new InvoiceServiceImpl();
 
     @POST
     @Path("/scan")

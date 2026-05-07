@@ -6,6 +6,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import service.AttendanceService;
+import service.AttendanceServiceImpl;
 
 import java.sql.SQLException;
 
@@ -14,7 +15,7 @@ import java.sql.SQLException;
 @Consumes(MediaType.APPLICATION_JSON)
 public class AttendanceController {
 
-    private final AttendanceService attendanceService = new AttendanceService();
+    private final AttendanceService attendanceService = new AttendanceServiceImpl();
 
     @POST
     @Path("/scan")

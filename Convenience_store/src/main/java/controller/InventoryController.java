@@ -6,6 +6,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import service.InventoryService;
+import service.InventoryServiceImpl;
 
 import java.sql.SQLException;
 
@@ -14,7 +15,7 @@ import java.sql.SQLException;
 @Consumes(MediaType.APPLICATION_JSON)
 public class InventoryController {
 
-    private final InventoryService inventoryService = new InventoryService();
+    private final InventoryService inventoryService = new InventoryServiceImpl();
 
     @POST
     @Path("/scan")

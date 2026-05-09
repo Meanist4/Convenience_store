@@ -1,5 +1,6 @@
-package service;
+﻿package service.impl;
 
+import service.*;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.List;
@@ -115,3 +116,4 @@ public class ManagerServiceImpl implements ManagerService {
             throw new IllegalArgumentException("Không tìm thấy manager hoặc đã bị xóa: id=" + id);
     }
 }
+

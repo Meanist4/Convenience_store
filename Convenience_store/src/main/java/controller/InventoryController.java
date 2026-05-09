@@ -1,4 +1,4 @@
-package controller;
+﻿package controller;
 
 import exception.NotFoundException;
 import exception.ValidationException;
@@ -6,7 +6,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import service.InventoryService;
-import service.InventoryServiceImpl;
+import service.impl.InventoryServiceImpl;
 
 import java.sql.SQLException;
 

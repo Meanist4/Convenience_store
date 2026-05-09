@@ -1,5 +1,6 @@
-package service;
+﻿package service.impl;
 
+import service.*;
 import repository.EmployeeRepository;
 import repository.PayrollRepository;
 import repository.PayrollRepository.PayrollRecord;
@@ -20,3 +21,4 @@ public class PayrollServiceImpl implements PayrollService {
     @Override public PayrollRecord calculateCurrentMonth(int employeeId) throws SQLException { YearMonth now = YearMonth.now(); return calculateForEmployee(employeeId, now.getYear(), now.getMonthValue()); }
     private void validateYearMonth(int year, int month) { if (year < 2000 || year > 2100) throw new IllegalArgumentException("Năm không hợp lệ: " + year); if (month < 1 || month > 12) throw new IllegalArgumentException("Tháng không hợp lệ: " + month); }
 }
+

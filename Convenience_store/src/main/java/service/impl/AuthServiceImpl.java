@@ -1,5 +1,6 @@
-package service;
+﻿package service.impl;
 
+import service.*;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.Optional;
@@ -95,3 +96,4 @@ public class AuthServiceImpl implements AuthService {
         return user == null || user.isBlank() || pass == null || pass.isBlank();
     }
 }
+

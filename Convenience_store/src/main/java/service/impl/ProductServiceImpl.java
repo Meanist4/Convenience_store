@@ -1,5 +1,6 @@
-package service;
+﻿package service.impl;
 
+import service.*;
 import entity.Product;
 import entity.ProductUnit;
 import repository.ProductRepository;
@@ -194,3 +195,4 @@ public class ProductServiceImpl implements ProductService {
             throw new IllegalArgumentException("Không tìm thấy đơn vị hoặc đã bị xóa: id=" + id);
     }
 }
+

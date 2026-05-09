@@ -1,5 +1,6 @@
-package service;
+﻿package service.impl;
 
+import service.*;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -61,3 +62,4 @@ public class InvoiceServiceImpl implements InvoiceService {
         return invoice;
     }
 }
+

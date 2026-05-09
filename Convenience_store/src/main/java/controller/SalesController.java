@@ -1,4 +1,4 @@
-package controller;
+﻿package controller;
 
 import java.sql.SQLException;
 
@@ -13,7 +13,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import service.InvoiceService;
-import service.InvoiceServiceImpl;
+import service.impl.InvoiceServiceImpl;
 
 @Path("/sales")
 @Produces(MediaType.APPLICATION_JSON)

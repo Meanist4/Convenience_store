@@ -1,5 +1,6 @@
-package service;
+﻿package service.impl;
 
+import service.*;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.List;
@@ -141,3 +142,4 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         detailRepo.delete(detailId);
     }
 }
+

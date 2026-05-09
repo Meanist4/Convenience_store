@@ -1,5 +1,6 @@
-package service;
+﻿package service.impl;
 
+import service.*;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
@@ -91,3 +92,4 @@ public class AdminServiceImpl implements AdminService {
             throw new IllegalArgumentException("Không tìm thấy admin hoặc đã bị xóa: id=" + id);
     }
 }
+

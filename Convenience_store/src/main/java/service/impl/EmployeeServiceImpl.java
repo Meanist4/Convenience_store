@@ -1,5 +1,6 @@
-package service;
+﻿package service.impl;
 
+import service.*;
 import entity.Employee;
 import repository.EmployeeRepository;
 import repository.StoreRepository;
@@ -161,3 +162,4 @@ public class EmployeeServiceImpl implements EmployeeService {
         return "EMP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 }
+

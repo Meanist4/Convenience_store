@@ -1,5 +1,6 @@
-package service;
+﻿package service.impl;
 
+import service.*;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
@@ -74,3 +75,4 @@ public class InventoryServiceImpl implements InventoryService {
         adjustStock(storeId, unitOpt.get().getProductId(), quantity);
     }
 }
+

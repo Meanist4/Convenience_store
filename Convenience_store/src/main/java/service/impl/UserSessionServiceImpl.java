@@ -1,5 +1,6 @@
-package service;
+﻿package service.impl;
 
+import service.*;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.List;
@@ -88,3 +89,4 @@ public class UserSessionServiceImpl implements UserSessionService {
         return session.getExpiresAt().after(new Timestamp(System.currentTimeMillis()));
     }
 }
+

@@ -1,5 +1,6 @@
-package service;
+﻿package service.impl;
 
+import service.*;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -90,3 +91,4 @@ public class NotificationServiceImpl implements NotificationService {
         // TODO: implement in NotificationRepository.
     }
 }
+

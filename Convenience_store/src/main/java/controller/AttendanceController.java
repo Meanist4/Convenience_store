@@ -1,4 +1,4 @@
-package controller;
+﻿package controller;
 
 import entity.Attendance;
 import exception.NotFoundException;
@@ -6,7 +6,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import service.AttendanceService;
-import service.AttendanceServiceImpl;
+import service.impl.AttendanceServiceImpl;
 
 import java.sql.SQLException;
 

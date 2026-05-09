@@ -1,5 +1,6 @@
-package service;
+﻿package service.impl;
 
+import service.*;
 import entity.Store;
 import repository.StoreRepository;
 
@@ -51,3 +52,4 @@ public class StoreServiceImpl implements StoreService {
         if (!storeRepo.delete(id)) throw new IllegalArgumentException("Không tìm thấy cửa hàng hoặc đã bị xóa: id=" + id);
     }
 }
+

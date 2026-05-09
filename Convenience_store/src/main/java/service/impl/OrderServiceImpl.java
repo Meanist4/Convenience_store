@@ -1,5 +1,6 @@
-package service;
+﻿package service.impl;
 
+import service.*;
 import entity.Invoice;
 import entity.InvoiceDetail;
 import entity.ProductUnit;
@@ -43,3 +44,4 @@ public class OrderServiceImpl implements OrderService {
     @Override public BigDecimal getMonthlyRevenue(int storeId, int year, int month) throws SQLException { if (month < 1 || month > 12) throw new IllegalArgumentException("Tháng không hợp lệ: " + month); return orderRepo.getMonthlyRevenue(storeId, year, month); }
     @Override public OrderService.CartItem buildCartItemFromBarcode(String barcode, int quantity) throws SQLException { ProductUnit unit = unitRepo.findByBarcode(barcode).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy barcode: " + barcode)); return new OrderService.CartItem(unit.getId(), quantity); }
 }
+

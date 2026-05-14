@@ -1,4 +1,4 @@
-﻿package controller;
+package controller;
 
 import entity.Attendance;
 import exception.NotFoundException;

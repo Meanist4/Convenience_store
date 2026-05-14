@@ -1,4 +1,4 @@
-﻿package service.impl;
+package service.impl;
 
 import service.*;
 import java.sql.SQLException;
@@ -45,7 +45,6 @@ public class AdminServiceImpl implements AdminService {
         a.setPasswordHash(Argon2Hasher.hash(rawPassword));
         a.setFullName(fullName);
         a.setRole(role != null ? role : "system_admin");
-
         if (!adminRepo.insert(a))
             throw new RuntimeException("Tạo admin thất bại");
         return a;
@@ -91,5 +90,17 @@ public class AdminServiceImpl implements AdminService {
         if (!adminRepo.delete(id))
             throw new IllegalArgumentException("Không tìm thấy admin hoặc đã bị xóa: id=" + id);
     }
-}
 
+    public void login(String username, String rawPassword) throws SQLException {
+        try {
+            Admin a = adminRepo.findByUsername(username.trim())
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy admin username=" + username));
+            if (!Argon2Hasher.verify(a.getPasswordHash(), rawPassword))
+                throw new IllegalArgumentException("Mật khẩu không đúng");
+        } catch (SQLException e) {
+            throw new SQLException("Lỗi khi truy vấn cơ sở dữ liệu", e);
+        }
+
+    }
+
+}

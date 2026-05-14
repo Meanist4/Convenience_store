@@ -36,4 +36,12 @@ public class DBConnection {
             connection = null;
         }
     }
+
+    public static void main(String[] args) {
+        try {
+            getConnection();
+
+        } catch (SQLException ex) {
+        }
+    }
 }

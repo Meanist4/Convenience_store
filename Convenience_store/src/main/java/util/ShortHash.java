@@ -18,4 +18,13 @@ public class ShortHash {
         String fullHex = HexFormat.of().formatHex(hash);
         return fullHex.substring(0, 12).toUpperCase();
     }
+
+    public static String ProductBarcodeHash(String uniqueNumber) throws Exception {
+        return "PRO-" + getBarcodeData(uniqueNumber);
+    }
+
+    
+    public static String EmployeeBarcodeHash(String uniqueNumber) throws Exception {
+        return "EMP-" + getBarcodeData(uniqueNumber);
+    }
 }

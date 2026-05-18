@@ -103,8 +103,12 @@ public class EmployeeServiceImpl implements EmployeeService {
         } catch (Exception ex) {
             System.getLogger(EmployeeServiceImpl.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
-        if (!employeeRepo.insert(e)) {
-            throw new RuntimeException("Tạo nhân viên thất bại");
+        try {
+            if (!employeeRepo.insert(e)) {
+                throw new RuntimeException("Tạo nhân viên thất bại");
+            }
+        } catch (Exception ex) {
+            System.getLogger(EmployeeServiceImpl.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
         return e;
     }
@@ -140,8 +144,12 @@ public class EmployeeServiceImpl implements EmployeeService {
         e.setHourlyRate(hourlyRate);
         e.setStatus(status);
 
-        if (!employeeRepo.update(e)) {
-            throw new RuntimeException("Cập nhật nhân viên thất bại");
+        try {
+            if (!employeeRepo.update(e)) {
+                throw new RuntimeException("Cập nhật nhân viên thất bại");
+            }
+        } catch (Exception ex) {
+            System.getLogger(EmployeeServiceImpl.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
         return e;
     }

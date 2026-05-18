@@ -77,7 +77,11 @@ public class ProductServiceImpl implements ProductService {
         defaultUnit.setRatio(1);
         defaultUnit.setSellingPrice(importPrice.multiply(BigDecimal.ONE.add(markupRate)));
         defaultUnit.setDefaultSale(true);
-        unitRepo.insert(defaultUnit);
+        try {
+            unitRepo.insert(defaultUnit);
+        } catch (Exception ex) {
+            System.getLogger(ProductServiceImpl.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
 
         return p;
     }
@@ -153,8 +157,12 @@ public class ProductServiceImpl implements ProductService {
         u.setSellingPrice(sellingPrice);
         u.setDefaultSale(isDefault);
 
-        if (!unitRepo.insert(u))
-            throw new RuntimeException("Thêm đơn vị thất bại");
+        try {
+            if (!unitRepo.insert(u))
+                throw new RuntimeException("Thêm đơn vị thất bại");
+        } catch (Exception ex) {
+            System.getLogger(ProductServiceImpl.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
         return u;
     }
 
@@ -177,8 +185,12 @@ public class ProductServiceImpl implements ProductService {
         u.setSellingPrice(sellingPrice);
         u.setDefaultSale(isDefault);
 
-        if (!unitRepo.update(u))
-            throw new RuntimeException("Cập nhật đơn vị thất bại");
+        try {
+            if (!unitRepo.update(u))
+                throw new RuntimeException("Cập nhật đơn vị thất bại");
+        } catch (Exception ex) {
+            System.getLogger(ProductServiceImpl.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
         return u;
     }
 

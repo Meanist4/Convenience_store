@@ -6,34 +6,87 @@ package view;
 
 import entity.Employee;
 import entity.Store;
+import java.awt.Component;
+import java.math.BigDecimal;
 import java.sql.SQLException;
-import java.util.Date;
+//import java.util.Date;
 import java.util.List;
+import java.sql.Date;
+import util.*;
 
 import javax.swing.ButtonGroup;
+import javax.swing.DefaultComboBoxModel;
+import javax.swing.DefaultListCellRenderer;
+import javax.swing.JList;
+import javax.swing.JOptionPane;
 import repository.StoreRepository;
+import service.impl.EmployeeServiceImpl;
 
 /**
  *
  * @author admin
  */
 public class AddEmpDialog extends javax.swing.JFrame {
-    
+
+    EmployeeServiceImpl empSrv = new EmployeeServiceImpl();
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(AddEmpDialog.class.getName());
+
+    /**
+     * storeId của cửa hàng đang chọn trên combobox
+     */
+    private Integer selectedStoreId;
 
     /**
      * Creates new form AddEmpDialog
      */
     public void loadCbbStore() throws SQLException {
-        storeIdComboBox.removeAllItems();
+        DefaultComboBoxModel<Store> model = new DefaultComboBoxModel<>();
         List<Store> stores = new StoreRepository().findAll();
         for (Store store : stores) {
-            storeIdComboBox.addItem(store.getStoreName() +"-"+ store.getLocation());
+            model.addElement(store);
+        }
+        storeIdComboBox.setModel((javax.swing.ComboBoxModel) model);
+        if (model.getSize() > 0) {
+            storeIdComboBox.setSelectedIndex(0);
+            updateSelectedStoreId();
         }
     }
-    
+
+    private void setupStoreComboBoxRenderer() {
+        storeIdComboBox.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value,
+                    int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof Store store) {
+                    setText(store.getStoreName() + " - " + store.getLocation());
+                }
+                return this;
+            }
+        });
+    }
+
+    private void updateSelectedStoreId() {
+        Store selected = (Store) storeIdComboBox.getSelectedItem();
+        selectedStoreId = selected != null ? selected.getId() : null;
+    }
+
+    public Integer getSelectedStoreId() {
+        return selectedStoreId;
+    }
+
     public AddEmpDialog() {
         initComponents();
+        setupStoreComboBoxRenderer();
+        try {
+            loadCbbStore();
+        } catch (SQLException e) {
+            logger.log(java.util.logging.Level.SEVERE, "Không thể tải danh sách cửa hàng", e);
+            JOptionPane.showMessageDialog(this,
+                    "Không thể tải danh sách cửa hàng: " + e.getMessage(),
+                    "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     /**
@@ -63,8 +116,6 @@ public class AddEmpDialog extends javax.swing.JFrame {
         addressTxt = new javax.swing.JTextField();
         jLabel9 = new javax.swing.JLabel();
         storeIdComboBox = new javax.swing.JComboBox<>();
-        jLabel10 = new javax.swing.JLabel();
-        statusComboBox = new javax.swing.JComboBox<>();
         jLabel11 = new javax.swing.JLabel();
         hourlyRateTxt = new javax.swing.JTextField();
         addEMPBtn = new javax.swing.JButton();
@@ -110,10 +161,6 @@ public class AddEmpDialog extends javax.swing.JFrame {
 
         storeIdComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
         storeIdComboBox.addActionListener(this::storeIdComboBoxActionPerformed);
-
-        jLabel10.setText("Trạng Thái Hoạt Động");
-
-        statusComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
 
         jLabel11.setText("Lương Theo Giờ");
 
@@ -164,28 +211,22 @@ public class AddEmpDialog extends javax.swing.JFrame {
                                 .addComponent(emailAddressTxt, javax.swing.GroupLayout.PREFERRED_SIZE, 300, javax.swing.GroupLayout.PREFERRED_SIZE)))))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 185, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                    .addComponent(jLabel8)
+                    .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel8)
                             .addGroup(layout.createSequentialGroup()
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addGroup(layout.createSequentialGroup()
-                                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                            .addComponent(jLabel10)
-                                            .addComponent(jLabel11))
-                                        .addGap(11, 11, 11))
-                                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                                        .addComponent(jLabel9)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                    .addComponent(addressTxt, javax.swing.GroupLayout.DEFAULT_SIZE, 300, Short.MAX_VALUE)
-                                    .addComponent(storeIdComboBox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                    .addComponent(statusComboBox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                    .addComponent(hourlyRateTxt))))
-                        .addGap(106, 106, 106))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addComponent(addEMPBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 188, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(205, 205, 205))))
+                                .addComponent(jLabel11)
+                                .addGap(44, 44, 44))
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                .addComponent(jLabel9)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)))
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(addEMPBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 188, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                .addComponent(addressTxt, javax.swing.GroupLayout.DEFAULT_SIZE, 300, Short.MAX_VALUE)
+                                .addComponent(storeIdComboBox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(hourlyRateTxt)))))
+                .addGap(106, 106, 106))
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 190, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -214,11 +255,7 @@ public class AddEmpDialog extends javax.swing.JFrame {
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                             .addComponent(hourlyRateTxt, javax.swing.GroupLayout.PREFERRED_SIZE, 35, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(jLabel11))
-                        .addGap(36, 36, 36)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(jLabel10)
-                            .addComponent(statusComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, 35, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addGap(72, 72, 72)
+                        .addGap(102, 102, 102)
                         .addComponent(addEMPBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
@@ -274,19 +311,59 @@ public class AddEmpDialog extends javax.swing.JFrame {
 
     private void addEMPBtnMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_addEMPBtnMouseClicked
         String fullname = fullNameTxt.getText();
-        Date birthDate = jCalendar1.getDate();
+        Date birthDate = new java.sql.Date(jCalendar1.getDate().getTime());
         String gender = getGender();
         String idCard = idCardTxt.getText();
         String phoneNumber = phoneNumberTxt.getText();
         String email = emailAddressTxt.getText();
         String address = addressTxt.getText();
-        String storeId;
-        
+        Integer storeId = getSelectedStoreId();
+        BigDecimal hourlyRate = BigDecimal.valueOf(Long.parseLong(hourlyRateTxt.getText()));
+//        String status = statusComboBox.getSelectedItem().toString();
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+        //
+
+//        emp.setFullName(fullname);
+//        emp.setGender(gender);
+//        emp.setBirthday(birthDate);
+//        emp.setIdCard(idCard);
+//        emp.setPhone(phoneNumber);
+//        emp.setEmail(email);
+//        emp.setAddress(address);
+//        emp.setStoreId(storeId);
+//        emp.setHourlyRate(hourlyRate);
+//        emp.setStatus(status);
+        try {
+            Employee emp = empSrv.createEmployee(fullname, birthDate, gender, idCard, phoneNumber, email, address, storeId, hourlyRate);
+            if (emp != null) {
+                JOptionPane.showMessageDialog(rootPane, "Thêm employee thành công ," + fullname);
+                try {
+                   
+                    String barcodeData = util.ShortHash.EmployeeBarcodeHash(emp.getIdCard());
+
+                    
+                    util.GenBarcode.genBarcode(barcodeData);
+
+                } catch (Exception ex) {
+                }
+            }
+        } catch (SQLException ex) {
+            System.getLogger(AddEmpDialog.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
+
 
     }//GEN-LAST:event_addEMPBtnMouseClicked
 
     private void storeIdComboBoxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_storeIdComboBoxActionPerformed
-        // TODO add your handling code here:
+        updateSelectedStoreId();
     }//GEN-LAST:event_storeIdComboBoxActionPerformed
 
     /**
@@ -326,7 +403,6 @@ public class AddEmpDialog extends javax.swing.JFrame {
     private javax.swing.JTextField idCardTxt;
     private com.toedter.calendar.JCalendar jCalendar1;
     private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
@@ -337,7 +413,6 @@ public class AddEmpDialog extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel8;
     private javax.swing.JLabel jLabel9;
     private javax.swing.JTextField phoneNumberTxt;
-    private javax.swing.JComboBox<String> statusComboBox;
     private javax.swing.JComboBox<String> storeIdComboBox;
     // End of variables declaration//GEN-END:variables
 }

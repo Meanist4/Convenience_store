@@ -12,6 +12,8 @@ import java.util.Optional;
 
 import convenience_store.DBConnection;
 import entity.Product;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ProductRepository {
 
@@ -84,12 +86,27 @@ public class ProductRepository {
 
     public List<Product> searchByName(String keyword) throws SQLException {
         List<Product> list = new ArrayList<>();
-        String sql = "SELECT * FROM products WHERE product_name LIKE ? AND is_deleted = 0";
+        String sql = "SELECT p.* FROM products p "
+                + "LEFT JOIN product_units pu ON p.id = pu.product_id "
+                + "WHERE (p.product_name LIKE ? "
+                + "   OR p.category LIKE ? "
+                + "   OR p.id LIKE ? "
+                + "   OR pu.barcode LIKE ?) "
+                + "AND p.is_deleted = 0 AND (pu.is_deleted = 0 OR pu.is_deleted IS NULL)";
         try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, "%" + keyword + "%");
+            String formattedKeyword = "%" + keyword + "%";
+            ps.setString(1, formattedKeyword); // Tìm theo Tên
+            ps.setString(2, formattedKeyword); // Tìm theo Danh mục
+            ps.setString(3, formattedKeyword); // Tìm theo ID (ép kiểu chuỗi ngầm định trong SQL)
+            ps.setString(4, formattedKeyword); // Tìm theo Mã vạch (Barcode)
             try (ResultSet rs = ps.executeQuery()) {
+                Set<Integer> addedIds = new HashSet<>();
                 while (rs.next()) {
-                    list.add(map(rs));
+                    Product p = map(rs);
+                    if (!addedIds.contains(p.getId())) {
+                        list.add(p);
+                        addedIds.add(p.getId());
+                    }
                 }
             }
         }

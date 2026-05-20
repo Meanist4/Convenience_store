@@ -5,10 +5,13 @@
 package view;
 
 import convenience_store.DBConnection;
+import entity.Product;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
+import javax.swing.ImageIcon;
 import javax.swing.table.DefaultTableModel;
 import service.impl.ProductServiceImpl;
 
@@ -25,11 +28,14 @@ public class ProductListFrame extends javax.swing.JFrame {
      * Creates new form ProductListFrame
      */
     public void loadProductData(String keyword) {
-        String[] columnNames = {"ID", "Mã Barcode", "Tên Sản Phẩm", "Loại Sản Phẩm", "Đơn Vị Tính", "Giá Bán", "Tên Ảnh"};
+        if (keyword == null || keyword.isBlank()) {
+            keyword = "";
+        }
+
+        String[] columnNames = {"ID", "Mã Barcode", "Tên Sản Phẩm", "Loại Sản Phẩm", "Đơn Vị Tính", "Giá Bán", "Ảnh"};
         DefaultTableModel model = new DefaultTableModel(columnNames, 0) {
             @Override
             public Class<?> getColumnClass(int columnIndex) {
-                // Nếu là cột số 6 (cột Hình Ảnh), bắt Java phải hiểu đây là loại ImageIcon
                 if (columnIndex == 6) {
                     return javax.swing.ImageIcon.class;
                 }
@@ -38,12 +44,13 @@ public class ProductListFrame extends javax.swing.JFrame {
 
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false; // Khóa không cho người dùng sửa trực tiếp trên ô bảng
+                return false;
             }
         };
 
         productTable.setRowHeight(60);
 
+        // Giữ nguyên câu lệnh SQL tuyệt vời có LEFT JOIN này của bạn
         String sql = "SELECT p.id, u.barcode, p.product_name, p.category, u.unit_name, u.selling_price, p.image_name "
                 + "FROM products p "
                 + "LEFT JOIN product_units u ON p.id = u.product_id "
@@ -55,27 +62,22 @@ public class ProductListFrame extends javax.swing.JFrame {
 
             ResultSet r = ps.executeQuery();
             while (r.next()) {
-                // Lấy tên ảnh từ cơ sở dữ liệu
                 String imageName = r.getString("image_name");
                 if (imageName == null || imageName.trim().isEmpty()) {
                     imageName = "default.png";
                 }
 
-                // Xử lý đường dẫn file ảnh (Kiểm tra cả thư mục src và build target của NetBeans)
                 String imagePath = "src/main/resources/images/" + imageName;
                 java.io.File file = new java.io.File(imagePath);
 
-                // Nếu không tìm thấy file theo đường dẫn trên, đổi sang dùng file default phòng hờ
                 if (!file.exists()) {
                     imagePath = "src/main/resources/images/default.png";
                     java.io.File defaultFile = new java.io.File(imagePath);
-                    // Nếu thư mục src chưa tạo hoặc sai cấu trúc folder, thử kiểm tra thư mục gốc dự án
                     if (!defaultFile.exists()) {
                         imagePath = "images/" + imageName;
                     }
                 }
 
-                // Tiến hành đọc ảnh và co dãn (Scale) vừa khít với ô lưới 50x50 pixel
                 javax.swing.ImageIcon finalIcon = null;
                 try {
                     java.io.File finalCheckFile = new java.io.File(imagePath);
@@ -88,7 +90,6 @@ public class ProductListFrame extends javax.swing.JFrame {
                     ex.printStackTrace();
                 }
 
-                // Xử lý các giá trị null tránh lỗi phát sinh do LEFT JOIN
                 String barcode = r.getString("barcode");
                 if (barcode == null) {
                     barcode = "Chưa có";
@@ -102,7 +103,6 @@ public class ProductListFrame extends javax.swing.JFrame {
                 double price = r.getDouble("selling_price");
                 String priceStr = r.wasNull() ? "0 đ" : String.format("%,.0f", price) + " đ";
 
-                // Đẩy dòng dữ liệu vào model (Ném đối tượng finalIcon vào cột cuối cùng)
                 model.addRow(new Object[]{
                     r.getInt("id"),
                     barcode,
@@ -110,11 +110,10 @@ public class ProductListFrame extends javax.swing.JFrame {
                     r.getString("category"),
                     unitName,
                     priceStr,
-                    finalIcon // Truyền đối tượng Icon đã xử lý vẽ đồ họa vào đây
+                    finalIcon
                 });
             }
 
-            // Cập nhật lại model mới tinh cho productTable
             productTable.setModel(model);
 
         } catch (SQLException e) {
@@ -138,20 +137,20 @@ public class ProductListFrame extends javax.swing.JFrame {
     private void initComponents() {
 
         jScrollPane2 = new javax.swing.JScrollPane();
-        searchTxt = new javax.swing.JTextPane();
+        txtTimKiem = new javax.swing.JTextPane();
         jLabel1 = new javax.swing.JLabel();
         searchBtn = new javax.swing.JButton();
-        jScrollPane3 = new javax.swing.JScrollPane();
+        lblImagePreview = new javax.swing.JLabel();
         jScrollPane1 = new javax.swing.JScrollPane();
         productTable = new javax.swing.JTable();
-        lblImagePreview = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
-        jScrollPane2.setViewportView(searchTxt);
+        jScrollPane2.setViewportView(txtTimKiem);
 
         jLabel1.setText("Tìm kiếm:");
 
+        searchBtn.setText("Tìm kiếm");
         searchBtn.addActionListener(this::searchBtnActionPerformed);
 
         productTable.setModel(new javax.swing.table.DefaultTableModel(
@@ -167,52 +166,59 @@ public class ProductListFrame extends javax.swing.JFrame {
         ));
         jScrollPane1.setViewportView(productTable);
 
-        jScrollPane3.setViewportView(jScrollPane1);
-
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addContainerGap()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 648, Short.MAX_VALUE)
                     .addGroup(layout.createSequentialGroup()
-                        .addGap(0, 0, Short.MAX_VALUE)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(lblImagePreview, javax.swing.GroupLayout.PREFERRED_SIZE, 142, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 54, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 120, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addComponent(searchBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 23, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                        .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 54, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 126, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(searchBtn)
+                        .addGap(25, 25, 25))
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 636, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(lblImagePreview, javax.swing.GroupLayout.PREFERRED_SIZE, 142, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addGap(17, 17, 17))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
+                .addGap(13, 13, 13)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel1)
+                    .addComponent(searchBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 22, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(6, 6, 6)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
-                        .addContainerGap()
-                        .addComponent(searchBtn, javax.swing.GroupLayout.PREFERRED_SIZE, 22, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createSequentialGroup()
-                        .addGap(19, 19, 19)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(jLabel1))))
-                .addGap(18, 18, 18)
-                .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 159, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(lblImagePreview, javax.swing.GroupLayout.PREFERRED_SIZE, 130, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(138, Short.MAX_VALUE))
+                        .addGap(183, 183, 183)
+                        .addComponent(lblImagePreview, javax.swing.GroupLayout.PREFERRED_SIZE, 130, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(18, 18, 18)
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 240, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(439, Short.MAX_VALUE))
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
     private void searchBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_searchBtnActionPerformed
-        // TODO add your handling code here:
+        // 1. Lấy từ khóa từ ô textfield
+        String keyword = txtTimKiem.getText();
+
+        // Nếu ô tìm kiếm trống, truyền chuỗi rỗng vào để hiển thị toàn bộ
+        if (keyword == null) {
+            keyword = "";
+        }
+
+        // 2. Gọi lại hàm load dữ liệu gốc (Hàm này tự tạo model mới, tự quét SQL có JOIN, tự render ảnh)
+        loadProductData(keyword.trim());
     }//GEN-LAST:event_searchBtnActionPerformed
 
     /**
@@ -244,10 +250,9 @@ public class ProductListFrame extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
-    private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JLabel lblImagePreview;
     private javax.swing.JTable productTable;
     private javax.swing.JButton searchBtn;
-    private javax.swing.JTextPane searchTxt;
+    private javax.swing.JTextPane txtTimKiem;
     // End of variables declaration//GEN-END:variables
 }

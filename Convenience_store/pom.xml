@@ -51,6 +51,12 @@
             <artifactId>javase</artifactId>
             <version>3.5.3</version> 
         </dependency>
+        <dependency>
+            <groupId>com.github.sarxos</groupId>
+            <artifactId>webcam-capture</artifactId>
+            <version>0.3.12</version>
+        </dependency>
+        
         <!--        <dependency>
             <groupId>com.formdev</groupId>
             <artifactId>flatlaf</artifactId>
@@ -62,5 +68,10 @@
             <artifactId>miglayout-swing</artifactId>
             <version>11.3</version>
         </dependency>-->
+        <dependency>
+            <groupId>org.netbeans.external</groupId>
+            <artifactId>AbsoluteLayout</artifactId>
+            <version>RELEASE290</version>
+        </dependency>
     </dependencies>
 </project>

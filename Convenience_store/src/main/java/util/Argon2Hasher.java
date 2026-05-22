@@ -19,4 +19,10 @@ public class Argon2Hasher {
             return false;
         return argon2.verify(hash, rawPassword.toCharArray());
     }
+    public static void main(String[] args) {
+        String pass = hash("hfshghsgfgshgf");
+        String pass2 = hash("hfshghsgfgshgf");
+        System.out.println(pass);
+        System.out.println(pass2);
+    }
 }

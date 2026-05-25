@@ -178,6 +178,7 @@ public class EmployeeListFrame extends javax.swing.JFrame {
             AddEmpDialog updateEmp =  new AddEmpDialog(this, true, emp);
             updateEmp.setVisible(true);
             LoadEmpTableData();
+            this.dispose();
         }else{
             JOptionPane.showMessageDialog(rootPane, "Vui lòng chọn 1 hàng");
         }

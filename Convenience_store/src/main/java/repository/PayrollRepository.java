@@ -10,7 +10,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import convenience_store.DBConnection;
 import entity.Payroll;
 
 public class PayrollRepository {
@@ -50,7 +49,7 @@ public class PayrollRepository {
                 "WHERE e.id = ? AND e.is_deleted = 0 " +
                 "GROUP BY e.id, e.full_name, e.hourly_rate, m.allowance";
 
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, year);
             ps.setInt(2, month);
@@ -77,7 +76,7 @@ public class PayrollRepository {
                 "GROUP BY e.id, e.full_name, e.hourly_rate, m.allowance " +
                 "ORDER BY e.full_name";
 
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, year);
             ps.setInt(2, month);
@@ -103,7 +102,7 @@ public class PayrollRepository {
                 "LEFT JOIN managers m ON m.employee_id = e.id AND m.is_deleted = 0 " +
                 "WHERE e.is_deleted = 0";
 
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, year);
             ps.setInt(2, month);
@@ -121,7 +120,7 @@ public class PayrollRepository {
                 "FROM attendance " +
                 "WHERE employee_id = ? AND status = 'valid' " +
                 "GROUP BY ym ORDER BY ym DESC LIMIT ?";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, employeeId);
             ps.setInt(2, months);
@@ -157,7 +156,7 @@ public class PayrollRepository {
 
         // Check duplicate
         String checkSql = "SELECT COUNT(*) FROM payrolls WHERE employee_id = ? AND month = ? AND year = ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = util.DatabaseUtil.getConnection();
                 PreparedStatement checkPs = conn.prepareStatement(checkSql)) {
             checkPs.setInt(1, p.getEmployeeId());
             checkPs.setInt(2, p.getMonth());
@@ -172,7 +171,7 @@ public class PayrollRepository {
         String sql = "INSERT INTO payrolls (employee_id, month, year, total_hours, hourly_rate_at_time, allowance, bonus, deductions, final_salary, status) "
                 +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, p.getEmployeeId());
             ps.setInt(2, p.getMonth());
@@ -191,7 +190,7 @@ public class PayrollRepository {
     public List<Payroll> findByMonth(int month, int year) throws SQLException {
         List<Payroll> list = new ArrayList<>();
         String sql = "SELECT * FROM payrolls WHERE month = ? AND year = ?";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, month);
             ps.setInt(2, year);

@@ -8,8 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import convenience_store.DBConnection;
-
 public class ManagerRepository {
 
     private Manager map(ResultSet rs) throws SQLException {
@@ -28,7 +26,7 @@ public class ManagerRepository {
     public List<Manager> findAll() throws SQLException {
         List<Manager> list = new ArrayList<>();
         String sql = "SELECT * FROM managers WHERE is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql);
                 ResultSet rs = ps.executeQuery()) {
             while (rs.next())
@@ -39,7 +37,7 @@ public class ManagerRepository {
 
     public Optional<Manager> findById(int id) throws SQLException {
         String sql = "SELECT * FROM managers WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -52,7 +50,7 @@ public class ManagerRepository {
 
     public Optional<Manager> findByEmployeeId(int employeeId) throws SQLException {
         String sql = "SELECT * FROM managers WHERE employee_id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, employeeId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -65,7 +63,7 @@ public class ManagerRepository {
 
     public Optional<Manager> findByUsername(String username) throws SQLException {
         String sql = "SELECT * FROM managers WHERE username = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, username);
             try (ResultSet rs = ps.executeQuery()) {
@@ -78,7 +76,7 @@ public class ManagerRepository {
 
     public boolean insert(Manager m) throws SQLException {
         String sql = "INSERT INTO managers (employee_id, username, password_hash, management_level, allowance) VALUES (?,?,?,?,?)";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, m.getEmployeeId());
             ps.setString(2, m.getUsername());
@@ -99,7 +97,7 @@ public class ManagerRepository {
 
     public boolean update(Manager m) throws SQLException {
         String sql = "UPDATE managers SET username=?, password_hash=?, management_level=?, allowance=? WHERE id=? AND is_deleted=0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, m.getUsername());
             ps.setString(2, m.getPasswordHash());
@@ -112,7 +110,7 @@ public class ManagerRepository {
 
     public boolean updateAllowance(int id, BigDecimal allowance) throws SQLException {
         String sql = "UPDATE managers SET allowance = ? WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setBigDecimal(1, allowance);
             ps.setInt(2, id);
@@ -122,7 +120,7 @@ public class ManagerRepository {
 
     public boolean updatePassword(int id, String newPasswordHash) throws SQLException {
         String sql = "UPDATE managers SET password_hash = ? WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, newPasswordHash);
             ps.setInt(2, id);
@@ -132,11 +130,11 @@ public class ManagerRepository {
 
     public boolean delete(int id) throws SQLException {
         String sql = "UPDATE managers SET is_deleted = 1, deleted_at = NOW() WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         }
     }
-    
+
 }

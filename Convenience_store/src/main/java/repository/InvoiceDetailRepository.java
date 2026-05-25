@@ -8,8 +8,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import convenience_store.DBConnection;
 import entity.InvoiceDetail;
 
 public class InvoiceDetailRepository {
@@ -26,10 +24,14 @@ public class InvoiceDetailRepository {
         return d;
     }
 
+    private boolean shouldClose(Connection conn) throws SQLException {
+        return conn != null && !conn.isClosed() && conn.getAutoCommit();
+    }
+
     public List<InvoiceDetail> findByInvoiceId(int invoiceId) throws SQLException {
         List<InvoiceDetail> list = new ArrayList<>();
         String sql = "SELECT * FROM invoice_details WHERE invoice_id = ?";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, invoiceId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -42,7 +44,7 @@ public class InvoiceDetailRepository {
 
     public Optional<InvoiceDetail> findById(int id) throws SQLException {
         String sql = "SELECT * FROM invoice_details WHERE id = ?";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -58,7 +60,7 @@ public class InvoiceDetailRepository {
         String sql = "SELECT id.* FROM invoice_details id " +
                 "JOIN invoices i ON i.id = id.invoice_id " +
                 "WHERE id.product_id = ? AND i.status = 'completed'";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, productId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -70,11 +72,22 @@ public class InvoiceDetailRepository {
     }
 
     public boolean insert(InvoiceDetail d) throws SQLException {
+        Connection con = util.DatabaseUtil.getConnection();
+        boolean closeConnection = shouldClose(con);
+        try {
+            return insert(d, con);
+        } finally {
+            if (closeConnection) {
+                con.close();
+            }
+        }
+    }
+
+    public boolean insert(InvoiceDetail d, Connection con) throws SQLException {
         String sql = "INSERT INTO invoice_details (invoice_id, product_id, unit_id, quantity, price_at_sale, subtotal) "
                 +
                 "VALUES (?, ?, ?, ?, ?, ?)";
-        try (Connection con = DBConnection.getConnection();
-                PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, d.getInvoiceId());
             ps.setInt(2, d.getProductId());
             ps.setInt(3, d.getUnitId());
@@ -97,7 +110,7 @@ public class InvoiceDetailRepository {
         String sql = "INSERT INTO invoice_details (invoice_id, product_id, unit_id, quantity, price_at_sale, subtotal) "
                 +
                 "VALUES (?, ?, ?, ?, ?, ?)";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             con.setAutoCommit(false);
             for (InvoiceDetail d : details) {
@@ -121,7 +134,7 @@ public class InvoiceDetailRepository {
 
     public boolean deleteByInvoiceId(int invoiceId) throws SQLException {
         String sql = "DELETE FROM invoice_details WHERE invoice_id = ?";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, invoiceId);
             return ps.executeUpdate() > 0;

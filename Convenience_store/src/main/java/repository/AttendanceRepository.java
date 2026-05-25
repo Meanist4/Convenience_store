@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import convenience_store.DBConnection;
 import entity.Attendance;
 
 public class AttendanceRepository {
@@ -33,7 +32,7 @@ public class AttendanceRepository {
     public List<Attendance> findAll() throws SQLException {
         List<Attendance> list = new ArrayList<>();
         String sql = "SELECT * FROM attendance ORDER BY work_date DESC";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql);
                 ResultSet rs = ps.executeQuery()) {
             while (rs.next())
@@ -44,7 +43,7 @@ public class AttendanceRepository {
 
     public Optional<Attendance> findById(int id) throws SQLException {
         String sql = "SELECT * FROM attendance WHERE id = ?";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -58,7 +57,7 @@ public class AttendanceRepository {
     public List<Attendance> findByEmployeeId(int employeeId) throws SQLException {
         List<Attendance> list = new ArrayList<>();
         String sql = "SELECT * FROM attendance WHERE employee_id = ? ORDER BY work_date DESC";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, employeeId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -72,7 +71,7 @@ public class AttendanceRepository {
     public List<Attendance> findByEmployeeAndDateRange(int employeeId, Date from, Date to) throws SQLException {
         List<Attendance> list = new ArrayList<>();
         String sql = "SELECT * FROM attendance WHERE employee_id = ? AND work_date BETWEEN ? AND ? ORDER BY work_date ASC";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, employeeId);
             ps.setDate(2, from);
@@ -87,7 +86,7 @@ public class AttendanceRepository {
 
     public Optional<Attendance> findTodayByEmployee(int employeeId) throws SQLException {
         String sql = "SELECT * FROM attendance WHERE employee_id = ? AND work_date = CURDATE() LIMIT 1";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, employeeId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -101,7 +100,7 @@ public class AttendanceRepository {
     public BigDecimal sumWorkHoursByEmployeeAndMonth(int employeeId, int year, int month) throws SQLException {
         String sql = "SELECT COALESCE(SUM(total_work_hours), 0) FROM attendance " +
                 "WHERE employee_id = ? AND YEAR(work_date) = ? AND MONTH(work_date) = ? AND status = 'valid'";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, employeeId);
             ps.setInt(2, year);
@@ -139,7 +138,7 @@ public class AttendanceRepository {
         String sql = "INSERT INTO attendance (employee_id, work_date, check_in, break_start, break_end, check_out, total_work_hours, status) "
                 +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, a.getEmployeeId());
             ps.setDate(2, a.getWorkDate());
@@ -163,7 +162,7 @@ public class AttendanceRepository {
 
     public boolean update(Attendance a) throws SQLException {
         String sql = "UPDATE attendance SET break_start = ?, break_end = ?, check_out = ?, total_work_hours = ?, status = ? WHERE id = ?";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setTimestamp(1, a.getBreakStart());
             ps.setTimestamp(2, a.getBreakEnd());
@@ -177,7 +176,7 @@ public class AttendanceRepository {
 
     public boolean updateStatus(int id, String status) throws SQLException {
         String sql = "UPDATE attendance SET status = ? WHERE id = ?";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, status);
             ps.setInt(2, id);

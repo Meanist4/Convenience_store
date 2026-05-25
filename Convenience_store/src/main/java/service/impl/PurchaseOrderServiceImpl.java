@@ -1,19 +1,21 @@
 package service.impl;
 
-
-import service.*;
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Optional;
 
 import entity.PurchaseOrder;
 import entity.PurchaseOrderDetail;
+import entity.StoreInventory;
 import repository.InventoryRepository;
+import repository.InventoryRepositoryImpl;
 import repository.PurchaseOrderDetailRepository;
 import repository.PurchaseOrderRepository;
 import repository.StoreRepository;
 import repository.SupplierRepository;
+import service.PurchaseOrderService;
+import util.DatabaseUtil;
 
 public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
@@ -21,14 +23,12 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final PurchaseOrderDetailRepository detailRepo = new PurchaseOrderDetailRepository();
     private final SupplierRepository supplierRepo = new SupplierRepository();
     private final StoreRepository storeRepo = new StoreRepository();
-    private final InventoryRepository inventoryRepo = new InventoryRepository();
+    private final InventoryRepository inventoryRepo = new InventoryRepositoryImpl();
 
     @Override
     public PurchaseOrder createOrder(int supplierId, int storeId, Integer adminId,
             List<PurchaseOrderDetail> details) throws SQLException {
-
-        if (details == null || details.isEmpty())
-            throw new IllegalArgumentException("Đơn nhập phải có ít nhất một sản phẩm");
+        validateDetails(details);
 
         supplierRepo.findById(supplierId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhà cung cấp id=" + supplierId));
@@ -37,12 +37,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cửa hàng id=" + storeId));
 
         BigDecimal totalAmount = BigDecimal.ZERO;
-        for (PurchaseOrderDetail d : details) {
-            if (d.getQuantity() <= 0)
-                throw new IllegalArgumentException("Số lượng phải > 0");
-            if (d.getImportPriceAtTime() == null || d.getImportPriceAtTime().compareTo(BigDecimal.ZERO) < 0)
-                throw new IllegalArgumentException("Giá nhập không hợp lệ");
-            totalAmount = totalAmount.add(d.getSubtotal());
+        for (PurchaseOrderDetail detail : details) {
+            normalizeDetail(detail);
+            totalAmount = totalAmount.add(detail.getSubtotal());
         }
 
         PurchaseOrder order = new PurchaseOrder();
@@ -52,18 +49,42 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         order.setTotalAmount(totalAmount);
         order.setStatus("pending");
 
-        int orderId = orderRepo.insert(order);
-        if (orderId <= 0)
-            throw new RuntimeException("Tạo đơn nhập thất bại");
+        Connection conn = DatabaseUtil.getConnection();
+        boolean previousAutoCommit = conn.getAutoCommit();
 
-        order.setId(orderId);
+        try {
+            conn.setAutoCommit(false);
 
-        for (PurchaseOrderDetail d : details) {
-            d.setPurchaseOrderId(orderId);
-            detailRepo.insert(d);
+            int orderId = orderRepo.insert(order, conn);
+            if (orderId <= 0) {
+                throw new RuntimeException("Tạo đơn nhập thất bại");
+            }
+
+            order.setId(orderId);
+
+            for (PurchaseOrderDetail detail : details) {
+                detail.setPurchaseOrderId(orderId);
+                if (!detailRepo.insert(detail, conn)) {
+                    throw new RuntimeException("Tạo chi tiết đơn nhập thất bại");
+                }
+            }
+
+            conn.commit();
+            return order;
+        } catch (Exception e) {
+            try {
+                conn.rollback();
+            } catch (SQLException rollbackEx) {
+                e.addSuppressed(rollbackEx);
+            }
+            throw e;
+        } finally {
+            try {
+                conn.setAutoCommit(previousAutoCommit);
+            } catch (SQLException ignored) {
+            }
+            DatabaseUtil.closeConnection();
         }
-
-        return order;
     }
 
     @Override
@@ -79,8 +100,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
     @Override
     public void updateOrderStatus(int orderId, String status) throws SQLException {
-        if (!status.equals("pending") && !status.equals("received") && !status.equals("cancelled"))
+        if (!"pending".equals(status) && !"received".equals(status) && !"cancelled".equals(status)) {
             throw new IllegalArgumentException("Status không hợp lệ: " + status);
+        }
 
         orderRepo.updateStatus(orderId, status);
     }
@@ -89,33 +111,62 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     public void receiveOrder(int orderId) throws SQLException {
         PurchaseOrder order = getOrderById(orderId);
 
-        if (!order.getStatus().equals("pending"))
+        if (!"pending".equals(order.getStatus())) {
             throw new IllegalStateException("Chỉ có thể nhận đơn ở trạng thái pending");
-
-        List<PurchaseOrderDetail> details = getOrderDetails(orderId);
-
-        for (PurchaseOrderDetail d : details) {
-            Optional<entity.StoreInventory> invOpt = inventoryRepo.findByStoreAndProduct(order.getStoreId(),
-                    d.getProductId());
-
-            if (invOpt.isPresent()) {
-                inventoryRepo.adjustQuantity(order.getStoreId(), d.getProductId(), d.getQuantity());
-            } else {
-                entity.StoreInventory newInv = new entity.StoreInventory(order.getStoreId(), d.getProductId(),
-                        d.getQuantity());
-                inventoryRepo.insert(newInv);
-            }
         }
 
-        orderRepo.updateStatus(orderId, "received");
+        List<PurchaseOrderDetail> details = getOrderDetails(orderId);
+        Connection conn = DatabaseUtil.getConnection();
+        boolean previousAutoCommit = conn.getAutoCommit();
+
+        try {
+            conn.setAutoCommit(false);
+
+            for (PurchaseOrderDetail detail : details) {
+                StoreInventory newBatch = new StoreInventory();
+                newBatch.setStoreId(order.getStoreId());
+                newBatch.setProductId(detail.getProductId());
+                newBatch.setQuantity(detail.getQuantity());
+                newBatch.setMinStockLevel(5);
+                newBatch.setBatchCode(detail.getBatchCode());
+                newBatch.setImportPrice(detail.getImportPriceAtTime());
+
+                if (detail.getExpiryDate() != null) {
+                    newBatch.setExpiryDate(new java.sql.Date(detail.getExpiryDate().getTime()));
+                }
+                newBatch.setReceivedAt(new java.sql.Date(System.currentTimeMillis()));
+
+                if (!inventoryRepo.insert(newBatch)) {
+                    throw new RuntimeException(
+                            "Tạo lô tồn kho mới cho sản phẩm ID " + detail.getProductId() + " thất bại");
+                }
+            }
+
+            orderRepo.updateStatus(orderId, "received", conn);
+            conn.commit();
+        } catch (Exception e) {
+            try {
+                conn.rollback();
+            } catch (SQLException rollbackEx) {
+                e.addSuppressed(rollbackEx);
+            }
+            throw e;
+        } finally {
+            try {
+                conn.setAutoCommit(previousAutoCommit);
+            } catch (SQLException ignored) {
+            }
+            DatabaseUtil.closeConnection();
+        }
     }
 
     @Override
     public void cancelOrder(int orderId) throws SQLException {
         PurchaseOrder order = getOrderById(orderId);
 
-        if (order.getStatus().equals("received"))
+        if ("received".equals(order.getStatus())) {
             throw new IllegalStateException("Không thể hủy đơn đã nhận");
+        }
 
         orderRepo.updateStatus(orderId, "cancelled");
     }
@@ -124,15 +175,16 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     public void addDetailToOrder(int orderId, PurchaseOrderDetail detail) throws SQLException {
         PurchaseOrder order = getOrderById(orderId);
 
-        if (!order.getStatus().equals("pending"))
+        if (!"pending".equals(order.getStatus())) {
             throw new IllegalStateException("Chỉ có thể thêm chi tiết khi đơn ở trạng thái pending");
+        }
 
-        if (detail.getQuantity() <= 0)
-            throw new IllegalArgumentException("Số lượng phải > 0");
-
+        normalizeDetail(detail);
         detail.setPurchaseOrderId(orderId);
-        if (!detailRepo.insert(detail))
+
+        if (!detailRepo.insert(detail)) {
             throw new RuntimeException("Thêm chi tiết đơn thất bại");
+        }
 
         BigDecimal newTotal = detailRepo.sumSubtotalByOrderId(orderId);
         orderRepo.updateTotal(orderId, newTotal);
@@ -140,7 +192,46 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
     @Override
     public void removeDetailFromOrder(int detailId) throws SQLException {
-        detailRepo.delete(detailId);
+        PurchaseOrderDetail detail = detailRepo.findById(detailId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy chi tiết đơn id=" + detailId));
+
+        PurchaseOrder order = getOrderById(detail.getPurchaseOrderId());
+        if (!"pending".equals(order.getStatus())) {
+            throw new IllegalStateException("Chỉ có thể xóa chi tiết khi đơn ở trạng thái pending");
+        }
+
+        if (!detailRepo.delete(detailId)) {
+            throw new RuntimeException("Xóa chi tiết đơn thất bại");
+        }
+
+        BigDecimal newTotal = detailRepo.sumSubtotalByOrderId(order.getId());
+        orderRepo.updateTotal(order.getId(), newTotal);
+    }
+
+    private void validateDetails(List<PurchaseOrderDetail> details) {
+        if (details == null || details.isEmpty()) {
+            throw new IllegalArgumentException("Đơn nhập phải có ít nhất một sản phẩm");
+        }
+
+        for (PurchaseOrderDetail detail : details) {
+            if (detail == null) {
+                throw new IllegalArgumentException("Chi tiết đơn nhập không được null");
+            }
+            if (detail.getProductId() <= 0) {
+                throw new IllegalArgumentException("Sản phẩm không hợp lệ");
+            }
+            if (detail.getQuantity() <= 0) {
+                throw new IllegalArgumentException("Số lượng phải > 0");
+            }
+        }
+    }
+
+    private void normalizeDetail(PurchaseOrderDetail detail) {
+        if (detail.getImportPriceAtTime() == null || detail.getImportPriceAtTime().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Giá nhập không hợp lệ");
+        }
+
+        BigDecimal subtotal = detail.getImportPriceAtTime().multiply(BigDecimal.valueOf(detail.getQuantity()));
+        detail.setSubtotal(subtotal);
     }
 }
-

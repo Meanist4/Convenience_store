@@ -1,16 +1,30 @@
 package repository;
 
-import convenience_store.DBConnection;
 import entity.Notification;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class NotificationRepository {
+    private boolean shouldClose(Connection conn) throws SQLException {
+        return conn != null && !conn.isClosed() && conn.getAutoCommit();
+    }
+
     public void insert(Notification n) throws SQLException {
+        Connection conn = util.DatabaseUtil.getConnection();
+        boolean closeConnection = shouldClose(conn);
+        try {
+            insert(n, conn);
+        } finally {
+            if (closeConnection) {
+                conn.close();
+            }
+        }
+    }
+
+    public void insert(Notification n, Connection conn) throws SQLException {
         String sql = "INSERT INTO notifications (store_id, title, content, type) VALUES (?, ?, ?, ?)";
-        try (Connection conn = DBConnection.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             if (n.getStoreId() != null)
                 ps.setInt(1, n.getStoreId());
             else
@@ -25,7 +39,7 @@ public class NotificationRepository {
     public List<Notification> findUnreadByStore(int storeId) throws SQLException {
         List<Notification> list = new ArrayList<>();
         String sql = "SELECT * FROM notifications WHERE (store_id = ? OR store_id IS NULL) AND is_read = 0 ORDER BY created_at DESC";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, storeId);
             ResultSet rs = ps.executeQuery();

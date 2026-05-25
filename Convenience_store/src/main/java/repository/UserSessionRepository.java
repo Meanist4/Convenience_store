@@ -8,8 +8,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import convenience_store.DBConnection;
 import entity.UserSession;
 
 public class UserSessionRepository {
@@ -30,7 +28,7 @@ public class UserSessionRepository {
     public List<UserSession> findByUserId(int userId) throws SQLException {
         List<UserSession> list = new ArrayList<>();
         String sql = "SELECT * FROM user_sessions WHERE user_id = ? AND expires_at > NOW() ORDER BY created_at DESC";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, userId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -43,7 +41,7 @@ public class UserSessionRepository {
 
     public Optional<UserSession> findByRefreshToken(String refreshToken) throws SQLException {
         String sql = "SELECT * FROM user_sessions WHERE refresh_token = ? AND expires_at > NOW()";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, refreshToken);
             try (ResultSet rs = ps.executeQuery()) {
@@ -56,7 +54,7 @@ public class UserSessionRepository {
 
     public Optional<UserSession> findById(int id) throws SQLException {
         String sql = "SELECT * FROM user_sessions WHERE id = ?";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -71,7 +69,7 @@ public class UserSessionRepository {
         String sql = "INSERT INTO user_sessions " +
                 "(user_id, user_type, refresh_token, ip_address, user_agent, expires_at) " +
                 "VALUES (?, ?, ?, ?, ?, ?)";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, session.getUserId());
             ps.setString(2, session.getUserType());
@@ -93,7 +91,7 @@ public class UserSessionRepository {
 
     public boolean revokeSession(int id) throws SQLException {
         String sql = "UPDATE user_sessions SET expires_at = NOW() WHERE id = ?";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
@@ -102,7 +100,7 @@ public class UserSessionRepository {
 
     public boolean revokeUserSessions(int userId) throws SQLException {
         String sql = "UPDATE user_sessions SET expires_at = NOW() WHERE user_id = ?";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, userId);
             ps.executeUpdate();
@@ -112,7 +110,7 @@ public class UserSessionRepository {
 
     public int cleanupExpiredSessions() throws SQLException {
         String sql = "DELETE FROM user_sessions WHERE expires_at < NOW()";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             return ps.executeUpdate();
         }

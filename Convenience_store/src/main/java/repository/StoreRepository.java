@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import convenience_store.DBConnection;
 import entity.Store;
 
 public class StoreRepository {
@@ -29,10 +28,24 @@ public class StoreRepository {
         return s;
     }
 
+    public Optional<Integer> findIdByCode(String storeCode) throws SQLException {
+        String sql = "SELECT id FROM stores WHERE store_code = ? AND is_deleted = 0";
+        try (Connection conn = util.DatabaseUtil.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, storeCode);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(rs.getInt("id"));
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
     public List<Store> findAll() throws SQLException {
         List<Store> list = new ArrayList<>();
         String sql = "SELECT * FROM stores WHERE is_deleted = 0 ORDER BY store_name";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql);
                 ResultSet rs = ps.executeQuery()) {
             while (rs.next())
@@ -44,7 +57,7 @@ public class StoreRepository {
     public List<Store> findAllActive() throws SQLException {
         List<Store> list = new ArrayList<>();
         String sql = "SELECT * FROM stores WHERE status = 'active' AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql);
                 ResultSet rs = ps.executeQuery()) {
             while (rs.next())
@@ -55,7 +68,7 @@ public class StoreRepository {
 
     public Optional<Store> findById(int id) throws SQLException {
         String sql = "SELECT * FROM stores WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -68,7 +81,7 @@ public class StoreRepository {
 
     public Optional<Store> findByManagerId(int managerId) throws SQLException {
         String sql = "SELECT * FROM stores WHERE manager_id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, managerId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -82,7 +95,7 @@ public class StoreRepository {
     public List<Store> searchByName(String keyword) throws SQLException {
         List<Store> list = new ArrayList<>();
         String sql = "SELECT * FROM stores WHERE store_name LIKE ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, "%" + keyword + "%");
             try (ResultSet rs = ps.executeQuery()) {
@@ -95,7 +108,7 @@ public class StoreRepository {
 
     public boolean insert(Store s) throws SQLException {
         String sql = "INSERT INTO stores (store_name, location, manager_id, status) VALUES (?, ?, ?, ?)";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, s.getStoreName());
             ps.setString(2, s.getLocation());
@@ -118,7 +131,7 @@ public class StoreRepository {
 
     public boolean update(Store s) throws SQLException {
         String sql = "UPDATE stores SET store_name=?, location=?, manager_id=?, status=? WHERE id=? AND is_deleted=0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, s.getStoreName());
             ps.setString(2, s.getLocation());
@@ -134,7 +147,7 @@ public class StoreRepository {
 
     public boolean assignManager(int storeId, Integer managerId) throws SQLException {
         String sql = "UPDATE stores SET manager_id = ? WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             if (managerId == null)
                 ps.setNull(1, Types.INTEGER);
@@ -147,7 +160,7 @@ public class StoreRepository {
 
     public boolean updateStatus(int id, String status) throws SQLException {
         String sql = "UPDATE stores SET status = ? WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, status);
             ps.setInt(2, id);
@@ -157,7 +170,7 @@ public class StoreRepository {
 
     public boolean delete(int id) throws SQLException {
         String sql = "UPDATE stores SET is_deleted = 1, deleted_at = NOW() WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;

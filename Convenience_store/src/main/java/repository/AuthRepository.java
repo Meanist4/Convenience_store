@@ -6,8 +6,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Optional;
-
-import convenience_store.DBConnection;
 import entity.Admin;
 import entity.Manager;
 
@@ -15,7 +13,7 @@ public class AuthRepository {
 
     public Optional<Admin> findAdminById(int id) throws SQLException {
         String sql = "SELECT * FROM admins WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -28,7 +26,7 @@ public class AuthRepository {
 
     public Optional<Manager> findManagerById(int id) throws SQLException {
         String sql = "SELECT * FROM managers WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -41,7 +39,7 @@ public class AuthRepository {
 
     public Optional<Admin> findAdminByUsername(String username) throws SQLException {
         String sql = "SELECT * FROM admins WHERE username = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, username);
             try (ResultSet rs = ps.executeQuery()) {
@@ -54,7 +52,7 @@ public class AuthRepository {
 
     public Optional<Manager> findManagerByUsername(String username) throws SQLException {
         String sql = "SELECT * FROM managers WHERE username = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, username);
             try (ResultSet rs = ps.executeQuery()) {
@@ -69,7 +67,7 @@ public class AuthRepository {
             String managementLevel, java.math.BigDecimal allowance,
             int storeId) throws SQLException {
 
-        Connection con = DBConnection.getConnection();
+        Connection con = util.DatabaseUtil.getConnection();
         try {
             con.setAutoCommit(false); // Bắt đầu giao dịch
 

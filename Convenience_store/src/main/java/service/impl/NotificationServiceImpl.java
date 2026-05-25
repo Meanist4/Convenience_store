@@ -1,6 +1,5 @@
 package service.impl;
 
-
 import service.*;
 import java.sql.SQLException;
 import java.util.List;
@@ -8,12 +7,13 @@ import java.util.List;
 import entity.Notification;
 import entity.StoreInventory;
 import repository.InventoryRepository;
+import repository.InventoryRepositoryImpl;
 import repository.NotificationRepository;
 
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepo = new NotificationRepository();
-    private final InventoryRepository inventoryRepo = new InventoryRepository();
+    private final InventoryRepository inventoryRepo = new InventoryRepositoryImpl();
 
     @Override
     public void createNotification(Integer storeId, String title, String content, String type) throws SQLException {
@@ -92,4 +92,3 @@ public class NotificationServiceImpl implements NotificationService {
         // TODO: implement in NotificationRepository.
     }
 }
-

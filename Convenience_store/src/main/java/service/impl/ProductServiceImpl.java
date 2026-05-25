@@ -1,6 +1,5 @@
 package service.impl;
 
-import convenience_store.DBConnection;
 import service.*;
 import entity.Product;
 import entity.ProductUnit;
@@ -20,6 +19,7 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepo = new ProductRepository();
     private final ProductUnitRepository unitRepo = new ProductUnitRepository();
+    
 
     @Override
     public List<Product> getAllProducts() throws SQLException {
@@ -61,7 +61,7 @@ public class ProductServiceImpl implements ProductService {
                 + "VALUES (?, ?, ?, ?, ?, ?, ?, 0)";
 
         // Thêm tham số Statement.RETURN_GENERATED_KEYS để lấy ID tự tăng từ DB
-        try (Connection conn = DBConnection.getConnection(); // Thay bằng cách lấy Connection của bạn
+        try (Connection conn = util.DatabaseUtil.getConnection(); // Thay bằng cách lấy Connection của bạn
                  PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setString(1, product.getProductName());
@@ -142,6 +142,8 @@ public class ProductServiceImpl implements ProductService {
     public Optional<ProductUnit> getDefaultUnit(int productId) throws SQLException {
         return unitRepo.findDefaultByProductId(productId);
     }
+    
+    
 
     @Override
     public ProductUnit addUnit(int productId, String unitName, int ratio,

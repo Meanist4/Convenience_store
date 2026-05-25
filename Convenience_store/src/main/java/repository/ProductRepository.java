@@ -9,8 +9,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import convenience_store.DBConnection;
 import entity.Product;
 import java.util.HashSet;
 import java.util.Set;
@@ -35,7 +33,9 @@ public class ProductRepository {
     public List<Product> findAll() throws SQLException {
         List<Product> list = new ArrayList<>();
         String sql = "SELECT * FROM products WHERE is_deleted = 0 ORDER BY product_name";
-        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+        try (Connection con = util.DatabaseUtil.getConnection();
+                PreparedStatement ps = con.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 list.add(map(rs));
             }
@@ -46,7 +46,7 @@ public class ProductRepository {
     public List<Product> findByStatus(String status) throws SQLException {
         List<Product> list = new ArrayList<>();
         String sql = "SELECT * FROM products WHERE status = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, status);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -59,7 +59,7 @@ public class ProductRepository {
 
     public Optional<Product> findById(int id) throws SQLException {
         String sql = "SELECT * FROM products WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -73,7 +73,7 @@ public class ProductRepository {
     public List<Product> findByCategory(String category) throws SQLException {
         List<Product> list = new ArrayList<>();
         String sql = "SELECT * FROM products WHERE category = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, category);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -93,7 +93,7 @@ public class ProductRepository {
                 + "   OR p.id LIKE ? "
                 + "   OR pu.barcode LIKE ?) "
                 + "AND p.is_deleted = 0 AND (pu.is_deleted = 0 OR pu.is_deleted IS NULL)";
-        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             String formattedKeyword = "%" + keyword + "%";
             ps.setString(1, formattedKeyword); // Tìm theo Tên
             ps.setString(2, formattedKeyword); // Tìm theo Danh mục
@@ -117,7 +117,7 @@ public class ProductRepository {
         String sql = "SELECT p.* FROM products p "
                 + "JOIN product_units pu ON pu.product_id = p.id "
                 + "WHERE pu.barcode = ? AND p.is_deleted = 0 AND pu.is_deleted = 0";
-        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, barcode);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -130,7 +130,8 @@ public class ProductRepository {
 
     public boolean insert(Product p) throws SQLException {
         String sql = "INSERT INTO products (product_name, category, base_unit, import_price, markup_rate, image_name, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
-        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection con = util.DatabaseUtil.getConnection();
+                PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, p.getProductName());
             ps.setString(2, p.getCategory());
             ps.setString(3, p.getBaseUnit());
@@ -153,7 +154,7 @@ public class ProductRepository {
 
     public boolean update(Product p) throws SQLException {
         String sql = "UPDATE products SET product_name=?, category=?, base_unit=?, import_price=?, markup_rate=?, status=? WHERE id=? AND is_deleted=0";
-        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, p.getProductName());
             ps.setString(2, p.getCategory());
             ps.setString(3, p.getBaseUnit());
@@ -167,7 +168,7 @@ public class ProductRepository {
 
     public boolean updatePricing(int id, BigDecimal importPrice, BigDecimal markupRate) throws SQLException {
         String sql = "UPDATE products SET import_price = ?, markup_rate = ? WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setBigDecimal(1, importPrice);
             ps.setBigDecimal(2, markupRate);
             ps.setInt(3, id);
@@ -177,7 +178,7 @@ public class ProductRepository {
 
     public boolean delete(int id) throws SQLException {
         String sql = "UPDATE products SET is_deleted = 1, deleted_at = NOW() WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         }
@@ -185,7 +186,7 @@ public class ProductRepository {
 
     public boolean restore(int id) throws SQLException {
         String sql = "UPDATE products SET is_deleted = 0, delete_at = NULL WHERE id = ? AND is_deleted = 1";
-        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         } catch (Exception e) {

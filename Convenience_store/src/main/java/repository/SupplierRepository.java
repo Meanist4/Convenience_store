@@ -7,15 +7,13 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import convenience_store.DBConnection;
 import entity.Supplier;
 
 public class SupplierRepository {
     public List<Supplier> findAll() throws SQLException {
         List<Supplier> list = new ArrayList<>();
         String sql = "SELECT * FROM suppliers WHERE is_deleted = 0";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql);
                 ResultSet rs = ps.executeQuery()) {
             while (rs.next())
@@ -26,7 +24,7 @@ public class SupplierRepository {
 
     public boolean insert(Supplier s) throws SQLException {
         String sql = "INSERT INTO suppliers (supplier_name, contact_person, phone, email, address) VALUES (?, ?, ?, ?, ?)";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, s.getSupplierName());
             ps.setString(2, s.getContactPerson());
@@ -52,7 +50,7 @@ public class SupplierRepository {
 
     public Optional<Supplier> findById(int id) throws SQLException {
         String sql = "SELECT * FROM suppliers WHERE id = ? AND is_deleted = 0";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -65,7 +63,7 @@ public class SupplierRepository {
 
     public Optional<Supplier> findByPhone(String phone) throws SQLException {
         String sql = "SELECT * FROM suppliers WHERE phone = ? AND is_deleted = 0";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, phone);
             try (ResultSet rs = ps.executeQuery()) {
@@ -78,7 +76,7 @@ public class SupplierRepository {
 
     public Optional<Supplier> findByEmail(String email) throws SQLException {
         String sql = "SELECT * FROM suppliers WHERE email = ? AND is_deleted = 0";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, email);
             try (ResultSet rs = ps.executeQuery()) {
@@ -92,7 +90,7 @@ public class SupplierRepository {
     public boolean update(Supplier s) throws SQLException {
         String sql = "UPDATE suppliers SET supplier_name = ?, contact_person = ?, phone = ?, email = ?, address = ? " +
                 "WHERE id = ? AND is_deleted = 0";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, s.getSupplierName());
             ps.setString(2, s.getContactPerson());
@@ -106,7 +104,7 @@ public class SupplierRepository {
 
     public boolean delete(int id) throws SQLException {
         String sql = "UPDATE suppliers SET is_deleted = 1, deleted_at = NOW() WHERE id = ? AND is_deleted = 0";
-        try (Connection conn = DBConnection.getConnection();
+        try (Connection conn = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;

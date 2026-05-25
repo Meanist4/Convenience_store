@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import convenience_store.DBConnection;
 import entity.Admin;
 
 public class AdminRepository {
@@ -30,7 +29,7 @@ public class AdminRepository {
     public List<Admin> findAll() throws SQLException {
         List<Admin> list = new ArrayList<>();
         String sql = "SELECT * FROM admins WHERE is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql);
                 ResultSet rs = ps.executeQuery()) {
             while (rs.next())
@@ -41,7 +40,7 @@ public class AdminRepository {
 
     public Optional<Admin> findById(int id) throws SQLException {
         String sql = "SELECT * FROM admins WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -54,7 +53,7 @@ public class AdminRepository {
 
     public Optional<Admin> findByUsername(String username) throws SQLException {
         String sql = "SELECT * FROM admins WHERE username = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, username);
             try (ResultSet rs = ps.executeQuery()) {
@@ -67,7 +66,7 @@ public class AdminRepository {
 
     public boolean insert(Admin a) throws SQLException {
         String sql = "INSERT INTO admins (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, a.getUsername());
             ps.setString(2, a.getPasswordHash());
@@ -87,7 +86,7 @@ public class AdminRepository {
 
     public boolean update(Admin a) throws SQLException {
         String sql = "UPDATE admins SET username = ?, password_hash = ?, full_name = ?, role = ? WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, a.getUsername());
             ps.setString(2, a.getPasswordHash());
@@ -100,7 +99,7 @@ public class AdminRepository {
 
     public boolean delete(int id) throws SQLException {
         String sql = "UPDATE admins SET is_deleted = 1, deleted_at = NOW() WHERE id = ? AND is_deleted = 0";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;

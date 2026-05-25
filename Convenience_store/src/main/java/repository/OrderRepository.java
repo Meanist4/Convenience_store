@@ -7,8 +7,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
-
-import convenience_store.DBConnection;
 import entity.Invoice;
 import entity.InvoiceDetail;
 
@@ -19,7 +17,7 @@ public class OrderRepository {
         String sqlDetail = "INSERT INTO invoice_details (invoice_id, product_id, unit_id, quantity, price_at_sale, subtotal) VALUES (?,?,?,?,?,?)";
         String sqlStock = "UPDATE store_inventory SET quantity = quantity - ? WHERE store_id = ? AND product_id = ? AND quantity >= ?";
 
-        Connection con = DBConnection.getConnection();
+        Connection con = util.DatabaseUtil.getConnection();
         try {
             con.setAutoCommit(false);
 
@@ -81,7 +79,7 @@ public class OrderRepository {
         String sqlDetails = "SELECT product_id, unit_id, quantity FROM invoice_details WHERE invoice_id = ?";
         String sqlRestock = "UPDATE store_inventory SET quantity = quantity + ? WHERE store_id = ? AND product_id = ?";
 
-        Connection con = DBConnection.getConnection();
+        Connection con = util.DatabaseUtil.getConnection();
         try {
             con.setAutoCommit(false);
 
@@ -125,7 +123,7 @@ public class OrderRepository {
     public BigDecimal getMonthlyRevenue(int storeId, int year, int month) throws SQLException {
         String sql = "SELECT COALESCE(SUM(total_amount), 0) FROM invoices " +
                 "WHERE store_id = ? AND status = 'completed' AND YEAR(created_at) = ? AND MONTH(created_at) = ?";
-        try (Connection con = DBConnection.getConnection();
+        try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, storeId);
             ps.setInt(2, year);

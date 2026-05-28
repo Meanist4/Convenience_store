@@ -31,7 +31,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final SupplierRepository supplierRepo = new SupplierRepository();
     private final StoreRepository storeRepo = new StoreRepository();
     private final ProductRepository productRepo = new ProductRepository();
-    private final ProductUnitRepository unitRepo = new ProductUnitRepository();
     private final InventoryRepository inventoryRepo = new InventoryRepositoryImpl();
 
     @Override
@@ -180,7 +179,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                             insertProductStmt.setBigDecimal(4, detail.getImportPriceAtTime());
                             insertProductStmt.setBigDecimal(5,
                                     detail.getTempMarkupRate() != null ? detail.getTempMarkupRate()
-                                    : new BigDecimal("0.20"));
+                                            : new BigDecimal("0.20"));
                             insertProductStmt.executeUpdate();
 
                             // --- ĐOẠN SỬA LỖI CHÍ MẠNG: LẤY ID TỰ TĂNG VỪA KHỞI TẠO ---
@@ -348,7 +347,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         int orderQuantity = 0;
         double orderPrice = 0.0;
 
-        try (Connection conn = DatabaseUtil.getConnection(); PreparedStatement stmtDetail = conn.prepareStatement(sqlOrderDetail)) {
+        try (Connection conn = DatabaseUtil.getConnection();
+                PreparedStatement stmtDetail = conn.prepareStatement(sqlOrderDetail)) {
             stmtDetail.setInt(1, orderId);
             stmtDetail.setInt(2, productId);
             try (ResultSet rsDetail = stmtDetail.executeQuery()) {
@@ -365,7 +365,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                     + "AND po.received_at < (SELECT received_at FROM purchase_orders WHERE id = ?)";
 
             int previousOrdersCount = 0;
-            try (Connection conn = DatabaseUtil.getConnection(); PreparedStatement stmtCount = conn.prepareStatement(sqlCountPrevious)) {
+            try (Connection conn = DatabaseUtil.getConnection();
+                    PreparedStatement stmtCount = conn.prepareStatement(sqlCountPrevious)) {
                 stmtCount.setInt(1, productId);
                 stmtCount.setInt(2, orderId);
                 try (ResultSet rsCount = stmtCount.executeQuery()) {
@@ -378,7 +379,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                     + "WHERE product_id = ? AND quantity = ? AND import_price = ? "
                     + "ORDER BY id ASC LIMIT 1 OFFSET ?";
 
-            try (Connection conn = DatabaseUtil.getConnection(); PreparedStatement stmtInv = conn.prepareStatement(sqlInventory)) {
+            try (Connection conn = DatabaseUtil.getConnection();
+                    PreparedStatement stmtInv = conn.prepareStatement(sqlInventory)) {
 
                 stmtInv.setInt(1, productId);
                 stmtInv.setInt(2, orderQuantity);
@@ -391,7 +393,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                         java.sql.Date expiryDateSql = rsInv.getDate("expiry_date");
 
                         String expiryDateStr = (expiryDateSql != null) ? expiryDateSql.toString() : "Không có hạn";
-                        return new String[]{batchCode, expiryDateStr};
+                        return new String[] { batchCode, expiryDateStr };
                     }
                 }
             }
@@ -462,8 +464,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         PreparedStatement psVerifyProductName = null;
         PreparedStatement psInsertProduct = null;
         PreparedStatement psUpdateDetailId = null;
-        PreparedStatement psInsertUnit = null;
-        PreparedStatement psUpdateUnitRatio = null;
+        PreparedStatement psInsertUnit = null; // Đã sửa để truyền động ratio & default flag
+        PreparedStatement psGetRatioByBarcode = null;
+        PreparedStatement psGetDefaultRatio = null;
         PreparedStatement psInsertInventory = null;
         PreparedStatement psUpdateOrder = null;
         boolean previousAutoCommit = true;
@@ -474,8 +477,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             conn.setAutoCommit(false);
 
             // ── Pre-fetch metadata từ purchase_order_details ──────────────────────────
-            String sqlLookupDetail
-                    = "SELECT id, raw_barcode, temp_product_name, temp_category, temp_base_unit, temp_markup_rate "
+            String sqlLookupDetail = "SELECT id, raw_barcode, temp_product_name, temp_category, temp_base_unit, temp_markup_rate "
                     + "FROM purchase_order_details WHERE purchase_order_id = ? ORDER BY id ASC";
             psLookupDetail = conn.prepareStatement(sqlLookupDetail);
             psLookupDetail.setInt(1, orderId);
@@ -498,7 +500,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             psCheckBarcodeExists = conn.prepareStatement(
                     "SELECT product_id FROM product_units WHERE barcode = ? AND is_deleted = 0 LIMIT 1");
 
-            // Dual-validation: xác minh tên sản phẩm thật sau khi tìm được product_id
             psVerifyProductName = conn.prepareStatement(
                     "SELECT product_name FROM products WHERE id = ? AND status != 'deleted' LIMIT 1");
 
@@ -509,17 +510,25 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             psUpdateDetailId = conn.prepareStatement(
                     "UPDATE purchase_order_details SET product_id = ?, quantity = ?, import_price_at_time = ? WHERE id = ?");
 
+            // ĐÃ CẬP NHẬT: Trở thành câu lệnh động hoàn toàn nhận cả ratio và cờ default từ
+            // Java
             psInsertUnit = conn.prepareStatement(
                     "INSERT INTO product_units (product_id, unit_name, ratio, barcode, selling_price, is_default_sale) "
-                    + "VALUES (?, ?, 1, ?, ?, TRUE)");
+                            + "VALUES (?, ?, ?, ?, ?, ?)");
 
-            psUpdateUnitRatio = conn.prepareStatement(
-                    "UPDATE product_units SET ratio = 1 WHERE product_id = ? AND is_deleted = 0");
+            // Lấy ratio của đơn vị tương ứng với mã vạch quét được lúc nhập
+            psGetRatioByBarcode = conn.prepareStatement(
+                    "SELECT ratio FROM product_units WHERE barcode = ? AND is_deleted = 0 LIMIT 1");
+
+            // Lấy ratio mặc định nếu chọn sản phẩm trực tiếp từ dropdown (đơn vị bán lẻ hạt
+            // nhân có ratio = 1)
+            psGetDefaultRatio = conn.prepareStatement(
+                    "SELECT ratio FROM product_units WHERE product_id = ? AND is_deleted = 0 AND is_default_sale = TRUE LIMIT 1");
 
             psInsertInventory = conn.prepareStatement(
                     "INSERT INTO store_inventory "
-                    + "(store_id, product_id, batch_code, quantity, import_price, expiry_date, received_at) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, NOW())");
+                            + "(store_id, product_id, batch_code, quantity, import_price, expiry_date, received_at) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, NOW())");
 
             // ── Vòng lặp xử lý từng dòng hàng ────────────────────────────────────────
             int index = 0;
@@ -530,6 +539,11 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 BigDecimal importPrice = item.getImportPrice();
                 String batchCode = item.getBatchCode();
                 java.sql.Date expiryDate = item.getExpiryDate();
+
+                // ĐỌC DỮ LIỆU ĐỘNG DO NGƯỜI DÙNG NHẬP TAY TỪ UI QUA DTO
+                int ratioNhap = item.getUnitRatio() <= 0 ? 1 : item.getUnitRatio(); // Tránh lỗi chia cho 0
+                String tenDonViNhap = item.getUnitName(); // Ví dụ: "Thùng"
+                String tenDonViLeGoc = item.getBaseUnitName(); // Ví dụ: "Chai"
 
                 // Validate dữ liệu đầu vào
                 if (quantity <= 0) {
@@ -545,9 +559,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                     throw new IllegalArgumentException("Hạn sử dụng không được để trống.");
                 }
 
-                // Lấy metadata tương ứng từ danh sách đã pre-fetch
+                // Lấy metadata tương ứng từ danh sách đã pre-fetch làm backup dữ liệu
                 String tempProductName = "Sản phẩm mới";
-                String tempBaseUnit = "Cái";
                 BigDecimal tempMarkupRate = new BigDecimal("0.20");
                 int detailRecordId = 0;
                 String rawBarcode = "";
@@ -556,37 +569,37 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                     java.util.Map<String, Object> meta = detailsMetadata.get(index);
                     detailRecordId = (int) meta.get("id");
                     if (meta.get("raw_barcode") != null) {
-                        rawBarcode = (String) meta.get("raw_barcode");
+                        // ⚠️ CRITICAL: Làm sạch rawBarcode xóa ALL hidden chars trước khi dùng
+                        rawBarcode = ((String) meta.get("raw_barcode")).replaceAll("\\s+", "");
                     }
                     if (meta.get("temp_product_name") != null) {
                         tempProductName = (String) meta.get("temp_product_name");
                     }
-                    if (meta.get("temp_base_unit") != null) {
-                        tempBaseUnit = (String) meta.get("temp_base_unit");
-                    }
                     if (meta.get("temp_markup_rate") != null) {
                         tempMarkupRate = (BigDecimal) meta.get("temp_markup_rate");
                     }
+                    // Nếu UI truyền lên rỗng, lấy từ thông tin tạm lưu trong chi tiết đơn làm dự
+                    // phòng
+                    if ((tenDonViNhap == null || tenDonViNhap.isEmpty()) && meta.get("temp_base_unit") != null) {
+                        tenDonViNhap = (String) meta.get("temp_base_unit");
+                    }
                 }
 
-                // ── BƯỚC 0: Tạo MD5 hash động, BYPASS hoàn toàn util.ShortHash ──────
-                // util.ShortHash.ProductBarcodeHash() bị hardcode → luôn trả về cùng 1 chuỗi
-                // → gây Duplicate entry. Thay bằng MD5 chuẩn tính trực tiếp trong Java.
+                // Đảm bảo tên đơn vị không bị null
+                if (tenDonViNhap == null || tenDonViNhap.trim().isEmpty()) {
+                    tenDonViNhap = "Thùng";
+                }
+                if (tenDonViLeGoc == null || tenDonViLeGoc.trim().isEmpty()) {
+                    tenDonViLeGoc = "Chai";
+                }
+
+                // ── BƯỚC 0: Tạo SHA-256 hash động cho Barcode theo chuẩn ShortHash
+                // ───────────────────────────────
                 String hashedBarcode;
                 try {
-                    java.security.MessageDigest md
-                            = java.security.MessageDigest.getInstance("MD5");
-                    byte[] hashBytes = md.digest(
-                            rawBarcode.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                    StringBuilder sb = new StringBuilder();
-                    for (byte b : hashBytes) {
-                        sb.append(String.format("%02X", b));
-                    }
-                    // Định dạng: "PRO-" + 12 ký tự đầu của MD5 (khớp độ dài PRO-3E9B54653179)
-                    hashedBarcode = "PRO-" + sb.toString().substring(0, 12);
-                } catch (java.security.NoSuchAlgorithmException e) {
-                    // MD5 là thuật toán chuẩn của JVM, nhánh này thực tế không bao giờ xảy ra
-                    throw new SQLException("Lỗi khi tạo MD5 hash cho barcode: " + e.getMessage(), e);
+                    hashedBarcode = util.ShortHash.ProductBarcodeHash(rawBarcode);
+                } catch (Exception e) {
+                    throw new SQLException("Lỗi khi tạo SHA-256 hash cho barcode: " + e.getMessage(), e);
                 }
 
                 // ── BƯỚC 1: Barcode lookup bằng hash mới vừa tính ───────────────────
@@ -598,8 +611,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                     }
                 }
 
-                // ── BƯỚC 2: DUAL-VALIDATION — xác minh tên thật trước khi tin product_id ──
-                // Dù hash khớp, vẫn phải xác nhận product_name để loại trừ collision còn sót.
+                // ── BƯỚC 2: DUAL-VALIDATION ──────────────────────────────────────────────
                 if (existingProductId > 0) {
                     psVerifyProductName.setInt(1, existingProductId);
                     try (ResultSet rsVerify = psVerifyProductName.executeQuery()) {
@@ -608,23 +620,24 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                             boolean nameMatches = tempProductName.trim()
                                     .equalsIgnoreCase(actualName.trim());
                             if (!nameMatches) {
-                                // Tên không khớp → collision → bỏ kết quả lookup, tạo sản phẩm mới
                                 existingProductId = 0;
                             }
                         } else {
-                            // product_id trỏ vào bản ghi không tồn tại (orphan) → bỏ
                             existingProductId = 0;
                         }
                     }
                 }
 
-                // ── BƯỚC 3: Route logic ──────────────────────────────────────────────
-                if (existingProductId > 0) {
-                    // CASE 1: Hash khớp VÀ tên xác nhận đúng → dùng sản phẩm đã có
-                    productId = existingProductId;
+                // Khai báo các biến lưu trữ dữ liệu sau quy đổi hạt nhân
+                int finalInventoryQuantity;
+                BigDecimal finalInventoryImportPrice;
 
-                    psUpdateUnitRatio.setInt(1, productId);
-                    psUpdateUnitRatio.executeUpdate();
+                // ── BƯỚC 3: Xử lý quy đổi động theo từng Case ──────────────────────────
+                if (existingProductId > 0) {
+                    // ═════════════════════════════════════════════════════════════════════
+                    // CASE 1: ĐÃ TỒN TẠI SẢN PHẨM KHỚP MÃ VẠCH & TÊN THẬT
+                    // ═════════════════════════════════════════════════════════════════════
+                    productId = existingProductId;
 
                     if (detailRecordId > 0) {
                         psUpdateDetailId.setInt(1, productId);
@@ -634,22 +647,36 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                         psUpdateDetailId.executeUpdate();
                     }
 
+                    // Lấy hệ số ratio quy đổi động từ cấu trúc DB đã lưu
+                    int unitRatio = 1;
+                    psGetRatioByBarcode.setString(1, hashedBarcode);
+                    try (ResultSet rsRatio = psGetRatioByBarcode.executeQuery()) {
+                        if (rsRatio.next()) {
+                            unitRatio = rsRatio.getInt("ratio");
+                        }
+                    }
+
+                    // Thực hiện quy đổi động về đơn vị hạt nhân để cộng dồn vào kho
+                    finalInventoryQuantity = quantity * unitRatio;
+                    finalInventoryImportPrice = importPrice.divide(BigDecimal.valueOf(unitRatio), 4,
+                            java.math.RoundingMode.HALF_UP);
+
+                    // Tiến hành nạp kho lô hàng quy đổi
                     psInsertInventory.setInt(1, storeId);
                     psInsertInventory.setInt(2, productId);
                     psInsertInventory.setString(3, batchCode);
-                    psInsertInventory.setInt(4, quantity);
-                    psInsertInventory.setBigDecimal(5, importPrice);
+                    psInsertInventory.setInt(4, finalInventoryQuantity);
+                    psInsertInventory.setBigDecimal(5, finalInventoryImportPrice);
                     psInsertInventory.setDate(6, expiryDate);
                     psInsertInventory.executeUpdate();
 
                 } else if (productId == 0) {
-                    // CASE 2: Hash không tìm thấy, hoặc tìm thấy nhưng tên không khớp → tạo mới
-
-                    // Step A: Tạo bản ghi sản phẩm mới
+                    // ═════════════════════════════════════════════════════════════════════
+                    // CASE 2: SẢN PHẨM MỚI TINH HOÀN TOÀN (KHAI SINH SẢN PHẨM ĐỘNG TỪ UI)
+                    // ═════════════════════════════════════════════════════════════════════
                     psInsertProduct.setString(1, tempProductName);
                     psInsertProduct.executeUpdate();
 
-                    // Step B: Lấy ID tự tăng vừa sinh
                     try (ResultSet generatedKeys = psInsertProduct.getGeneratedKeys()) {
                         if (generatedKeys.next()) {
                             productId = generatedKeys.getInt(1);
@@ -658,7 +685,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                         }
                     }
 
-                    // Step C: Ghi product_id thật ngược lại vào purchase_order_details
                     if (detailRecordId > 0) {
                         psUpdateDetailId.setInt(1, productId);
                         psUpdateDetailId.setInt(2, quantity);
@@ -667,28 +693,51 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                         psUpdateDetailId.executeUpdate();
                     }
 
-                    // Step D: Tạo đơn vị tính, lưu MD5 hash mới tính (đảm bảo unique)
-                    BigDecimal sellingPrice = importPrice.multiply(BigDecimal.ONE.add(tempMarkupRate));
+                    // A. Tính toán giá bán lẻ dự kiến cho đơn vị hạt nhân (Chai/Lon) làm gốc
+                    BigDecimal giaNhapTungDonViLe = importPrice.divide(BigDecimal.valueOf(ratioNhap), 4,
+                            java.math.RoundingMode.HALF_UP);
+                    BigDecimal giaBanLeTungDonViLe = giaNhapTungDonViLe.multiply(BigDecimal.ONE.add(tempMarkupRate));
+
+                    // B. Tự động chèn ĐƠN VỊ LẺ LÀM GỐC (Chai/Lon) trước với ratio = 1 và
+                    // is_default_sale = TRUE
                     psInsertUnit.setInt(1, productId);
-                    psInsertUnit.setString(2, tempBaseUnit);
-                    psInsertUnit.setString(3, hashedBarcode);   // hash từ MD5, không dùng ShortHash
-                    psInsertUnit.setBigDecimal(4, sellingPrice);
+                    psInsertUnit.setString(2, tenDonViLeGoc); // Động từ UI: "Chai"
+                    psInsertUnit.setInt(3, 1); // Hạt nhân luôn có ratio = 1
+                    psInsertUnit.setString(4, hashedBarcode + "-LE"); // Tạo barcode phụ cho chai lẻ
+                    psInsertUnit.setBigDecimal(5, giaBanLeTungDonViLe);
+                    psInsertUnit.setBoolean(6, true); // Đặt làm mặc định bán lẻ tại quầy POS
                     psInsertUnit.executeUpdate();
 
-                    // Step E: Nhập kho
+                    // C. Chèn ĐƠN VỊ LỚN DÙNG ĐỂ NHẬP (Thùng/Lốc) với ratio động nhập tay từ UI và
+                    // is_default_sale = FALSE
+                    BigDecimal giaBanThungDuKien = importPrice.multiply(BigDecimal.ONE.add(tempMarkupRate));
+                    psInsertUnit.setInt(1, productId);
+                    psInsertUnit.setString(2, tenDonViNhap); // Động từ UI: "Thùng"
+                    psInsertUnit.setInt(3, ratioNhap); // Động từ UI: 24
+                    psInsertUnit.setString(4, hashedBarcode); // Gắn chính xác mã vạch thùng quét được vào đây
+                    psInsertUnit.setBigDecimal(5, giaBanThungDuKien);
+                    psInsertUnit.setBoolean(6, false); // Đơn vị sỉ không dùng làm mặc định quét lẻ tại quầy
+                    psInsertUnit.executeUpdate();
+
+                    // D. Quy đổi số lượng thực tế lưu trữ trong kho sang dạng hạt nhân lẻ (ví dụ: 5
+                    // thùng * 24 = 120 chai)
+                    finalInventoryQuantity = quantity * ratioNhap;
+                    finalInventoryImportPrice = giaNhapTungDonViLe;
+
+                    // E. Nạp vào bảng store_inventory theo dữ liệu đã được quy đổi sạch sẽ số
+                    // nguyên
                     psInsertInventory.setInt(1, storeId);
                     psInsertInventory.setInt(2, productId);
                     psInsertInventory.setString(3, batchCode);
-                    psInsertInventory.setInt(4, quantity);
-                    psInsertInventory.setBigDecimal(5, importPrice);
+                    psInsertInventory.setInt(4, finalInventoryQuantity);
+                    psInsertInventory.setBigDecimal(5, finalInventoryImportPrice);
                     psInsertInventory.setDate(6, expiryDate);
                     psInsertInventory.executeUpdate();
 
                 } else {
-                    // CASE 3: productId > 0 từ DTO (sản phẩm đã biết trước) → dùng thẳng
-                    psUpdateUnitRatio.setInt(1, productId);
-                    psUpdateUnitRatio.executeUpdate();
-
+                    // ═════════════════════════════════════════════════════════════════════
+                    // CASE 3: CHỌN SẢN PHẨM CÓ SẴN BẰNG DROPDOWN THỦ CÔNG
+                    // ═════════════════════════════════════════════════════════════════════
                     if (detailRecordId > 0) {
                         psUpdateDetailId.setInt(1, productId);
                         psUpdateDetailId.setInt(2, quantity);
@@ -697,11 +746,24 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                         psUpdateDetailId.executeUpdate();
                     }
 
+                    // Lấy ratio đơn vị mặc định bán lẻ của sản phẩm có sẵn
+                    int unitRatio = 1;
+                    psGetDefaultRatio.setInt(1, productId);
+                    try (ResultSet rsRatio = psGetDefaultRatio.executeQuery()) {
+                        if (rsRatio.next()) {
+                            unitRatio = rsRatio.getInt("ratio");
+                        }
+                    }
+
+                    finalInventoryQuantity = quantity * unitRatio;
+                    finalInventoryImportPrice = importPrice.divide(BigDecimal.valueOf(unitRatio), 4,
+                            java.math.RoundingMode.HALF_UP);
+
                     psInsertInventory.setInt(1, storeId);
                     psInsertInventory.setInt(2, productId);
                     psInsertInventory.setString(3, batchCode);
-                    psInsertInventory.setInt(4, quantity);
-                    psInsertInventory.setBigDecimal(5, importPrice);
+                    psInsertInventory.setInt(4, finalInventoryQuantity);
+                    psInsertInventory.setBigDecimal(5, finalInventoryImportPrice);
                     psInsertInventory.setDate(6, expiryDate);
                     psInsertInventory.executeUpdate();
                 }
@@ -709,7 +771,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 index++;
             }
 
-            // ── Cập nhật trạng thái đơn hàng — PHẢI là thao tác CUỐI CÙNG trước commit ──
+            // ── Cập nhật trạng thái đơn hàng — Thao tác cuối cùng trước commit ──
             String updateOrderSql = "UPDATE purchase_orders SET status = ?, received_at = NOW() WHERE id = ?";
             psUpdateOrder = conn.prepareStatement(updateOrderSql);
             psUpdateOrder.setString(1, "received");
@@ -719,7 +781,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 throw new SQLException("Không tìm thấy đơn hàng có ID: " + orderId);
             }
 
-            // Commit toàn bộ transaction sau khi TẤT CẢ thao tác thành công
             conn.commit();
 
         } catch (SQLException e) {
@@ -734,6 +795,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                     "Duyệt đơn hàng thất bại. Hệ thống đã rollback toàn bộ thay đổi. Chi tiết: " + e.getMessage(), e);
 
         } finally {
+            // ── Giải phóng toàn bộ tài nguyên prepared statements và connection ──
             try {
                 if (psLookupDetail != null) {
                     psLookupDetail.close();
@@ -753,8 +815,11 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 if (psInsertUnit != null) {
                     psInsertUnit.close();
                 }
-                if (psUpdateUnitRatio != null) {
-                    psUpdateUnitRatio.close();
+                if (psGetRatioByBarcode != null) {
+                    psGetRatioByBarcode.close();
+                }
+                if (psGetDefaultRatio != null) {
+                    psGetDefaultRatio.close();
                 }
                 if (psInsertInventory != null) {
                     psInsertInventory.close();

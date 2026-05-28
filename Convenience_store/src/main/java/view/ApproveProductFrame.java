@@ -328,10 +328,22 @@ public class ApproveProductFrame extends javax.swing.JFrame {
                 return;
             }
 
-            // Create InventoryImportDTO with raw values (no calculations)
-            int conversionRatio = 1;
-            importList.add(new dto.InventoryImportDTO(productId, quantity, importPrice, batchCode, sqlExpiryDate,
-                    conversionRatio));
+            dto.InventoryImportDTO itemDto = new dto.InventoryImportDTO();
+            itemDto.setProductId(productId);
+            itemDto.setQuantity(quantity);
+            itemDto.setImportPrice(importPrice);
+            itemDto.setBatchCode(batchCode);
+            itemDto.setExpiryDate(sqlExpiryDate);
+
+            // Lấy dữ liệu tên đơn vị lớn, hệ số và đơn vị gốc lẻ từ Table/UI nếu giao diện
+            // của bạn có cột đó.
+            // Nếu giao diện của bạn hiện tại chưa bổ sung cột nhập tay, ta tạm thời lấy mặc
+            // định như sau:
+            itemDto.setUnitName("Thùng"); // Tên đơn vị nhập (Ví dụ dòng này nhập Thùng)
+            itemDto.setUnitRatio(24); // Hệ số quy đổi nhập tay (Ví dụ: 24)
+            itemDto.setBaseUnitName("Chai"); // Tên đơn vị hạt nhân lẻ làm gốc
+
+            importList.add(itemDto);
         }
 
         // Call service with transaction handling

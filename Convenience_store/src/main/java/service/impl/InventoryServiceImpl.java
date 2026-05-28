@@ -12,6 +12,8 @@ import exception.NotFoundException;
 import exception.ValidationException;
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import repository.InventoryRepository;
 import repository.InventoryRepositoryImpl;
 import repository.InvoiceDetailRepository;
@@ -45,49 +47,95 @@ public class InventoryServiceImpl implements InventoryService {
         if (requiredQty <= 0) {
             throw new IllegalArgumentException("Số lượng cần trừ phải lớn hơn 0");
         }
+
+        // Lấy connection hiện tại từ luồng đang chạy Transaction ra để dùng xuyên suốt
+        Connection currentConn = util.DatabaseUtil.getConnection();
+
+        // 1. Kiểm tra tổng tồn kho (Dùng repo chung một connection để đảm bảo dữ liệu
+        // cô lập tốt)
         int totalAvailable = inventoryRepo.findTotalQuantity(storeId, productId);
         if (totalAvailable < requiredQty) {
             throw new IllegalStateException(
-                    "Sản phẩm ID " + productId + " không đủ hàng tồn. Cần: " + requiredQty + ", Có: " + totalAvailable);
+                    "Sản phẩm ID " + productId + " không đủ hàng tồn. Cần hạt nhân: " + requiredQty + ", Có: "
+                            + totalAvailable);
         }
-        List<StoreInventory> activeBatches = inventoryRepo.findAvailableBatches(storeId, productId);
-        int remainingToDeduct = requiredQty;
 
-        // Lấy connection hiện tại từ luồng ThreadLocal ra để dùng cho lệnh chèn chi
-        // tiết hóa đơn
-        Connection currentConn = util.DatabaseUtil.getConnection();
+        // 2. Lấy hệ số quy đổi (ratio) của đơn vị tính đang dùng để bán hàng
+        int unitRatio = 1;
+        String sqlGetRatio = "SELECT ratio FROM product_units WHERE id = ? LIMIT 1";
+        try (PreparedStatement psRatio = currentConn.prepareStatement(sqlGetRatio)) {
+            psRatio.setInt(1, unitId);
+            try (ResultSet rs = psRatio.executeQuery()) {
+                if (rs.next()) {
+                    unitRatio = rs.getInt("ratio");
+                }
+            }
+        }
+        if (unitRatio <= 0) {
+            unitRatio = 1; // Phòng hờ lỗi dữ liệu gốc
+        }
+        // 3. Lấy danh sách các lô hàng sắp xếp theo hạn sử dụng tăng dần (Cận đát xuất
+        // trước - FEFO)
+        List<StoreInventory> activeBatches = inventoryRepo.findAvailableBatches(storeId, productId);
+        int remainingToDeduct = requiredQty; // Số lượng hạt nhân (ví dụ: chai) cần trừ giảm dần
 
         for (StoreInventory batch : activeBatches) {
             if (remainingToDeduct <= 0) {
                 break;
             }
 
-            int currentBatchQty = batch.getQuantity();
-            int deductedFromThisBatch = 0;
+            int currentBatchQty = batch.getQuantity(); // Số lượng hạt nhân đang tồn ở lô này
+            int deductedFromThisBatch = 0; // Lượng hạt nhân sẽ bẻ từ lô này
 
             if (currentBatchQty <= remainingToDeduct) {
                 deductedFromThisBatch = currentBatchQty;
                 remainingToDeduct -= currentBatchQty;
+
+                // Lô này hết sạch, cập nhật tồn kho về 0
                 inventoryRepo.updateQuantity(batch.getId(), 0);
             } else {
                 deductedFromThisBatch = remainingToDeduct;
+
+                // Lô này vẫn còn dư, trừ bớt đi lượng đã lấy
                 inventoryRepo.updateQuantity(batch.getId(), currentBatchQty - remainingToDeduct);
                 remainingToDeduct = 0;
             }
+
+            // ═════════════════════════════════════════════════════════════════════
+            // 🧮 QUY ĐỔI TOÁN HỌC NGƯỢC: CHUYỂN DỮ LIỆU HẠT NHÂN VỀ ĐƠN VỊ HIỂN THỊ TRÊN
+            // HÓA ĐƠN
+            // ═════════════════════════════════════════════════════════════════════
+            // Ví dụ: Lô này gánh 24 chai lẻ, ratio là 24 (Thùng) -> Số lượng lưu chi tiết
+            // hóa đơn = 24 / 24 = 1 (Thùng)
+            double displayQty = (double) deductedFromThisBatch / unitRatio;
+            BigDecimal displayQtyBigDecimal = BigDecimal.valueOf(displayQty);
+
+            // Tính thành tiền phân đoạn lô: Số lượng đơn vị mua * Giá bán của đơn vị đó
+            BigDecimal subtotal = priceAtSale.multiply(displayQtyBigDecimal);
+
+            // 4. Tiến hành ghi nhận dòng phân đoạn lô này vào chi tiết hóa đơn
             InvoiceDetail batchDetail = new InvoiceDetail();
             batchDetail.setInvoiceId(invoiceId);
             batchDetail.setProductId(productId);
             batchDetail.setUnitId(unitId);
-            batchDetail.setQuantity(deductedFromThisBatch);
+
+            // Lưu số lượng đúng theo đơn vị hiển thị (Cho phép lưu số thực nếu bẻ lẻ thùng,
+            // ví dụ: 0.5 thùng)
+            // Nếu thuộc tính setQuantity của bạn nhận kiểu int, bạn có thể cân nhắc chuyển
+            // đổi hoặc ép cấu trúc
+            batchDetail.setQuantity((int) Math.round(displayQty));
+
             batchDetail.setPriceAtSale(priceAtSale);
-            batchDetail.setSubtotal(priceAtSale.multiply(BigDecimal.valueOf(deductedFromThisBatch)));
-            batchDetail.setInventoryId(batch.getId());
+            batchDetail.setSubtotal(subtotal);
+            batchDetail.setInventoryId(batch.getId()); // Gắn chặt ID lô hàng để sau này truy vết xuất xứ
 
             if (!detailRepo.insert(batchDetail, currentConn)) {
-                throw new RuntimeException("Thêm chi tiết hóa đơn theo lô thất bại");
+                throw new RuntimeException("Thêm chi tiết hóa đơn bẻ lô theo FEFO thất bại.");
             }
         }
 
+        // 5. Kiểm tra và bắn thông báo nếu sản phẩm này rơi vào ngưỡng sắp hết hàng
+        // công ty
         checkAndNotifyLowStock(storeId, productId);
     }
 

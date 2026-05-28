@@ -1,7 +1,6 @@
 package entity;
 
 import java.math.BigDecimal;
-import java.util.Date; // Thêm import để dùng kiểu dữ liệu Date
 
 public class PurchaseOrderDetail {
     private int id;
@@ -10,8 +9,6 @@ public class PurchaseOrderDetail {
     private int quantity;
     private BigDecimal importPriceAtTime;
     private BigDecimal subtotal;
-
-    // ── Deferred Product Creation Fields ──────────────────────────
     private String rawBarcode; // Raw barcode for new products (hand-typed)
     private String tempProductName; // Temporary product name for new items
     private String tempCategory; // Temporary category for new items

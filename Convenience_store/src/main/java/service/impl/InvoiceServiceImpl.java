@@ -3,6 +3,8 @@ package service.impl;
 import service.*;
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.List;
@@ -88,6 +90,7 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         Connection conn = util.DatabaseUtil.getConnection();
         boolean previousAutoCommit = conn.getAutoCommit();
+        PreparedStatement psGetRatio = null;
 
         try {
             conn.setAutoCommit(false);
@@ -96,19 +99,33 @@ public class InvoiceServiceImpl implements InvoiceService {
                 throw new RuntimeException("Tạo hóa đơn thất bại");
             }
 
+            // Chuẩn bị SQL tìm tỷ lệ quy đổi của đơn vị để trừ kho chính xác
+            psGetRatio = conn.prepareStatement("SELECT ratio FROM product_units WHERE id = ? LIMIT 1");
+
             for (InvoiceDetail detail : details) {
                 detail.setInvoiceId(inv.getId());
 
-                // Gọi hàm bẻ lô (Chỉ truyền thêm thông tin nghiệp vụ, KHÔNG truyền Connection)
+                // Tìm hệ số quy đổi của đơn vị tính được chọn trên giao diện
+                int unitRatio = 1;
+                psGetRatio.setInt(1, detail.getUnitId());
+                try (ResultSet rs = psGetRatio.executeQuery()) {
+                    if (rs.next()) {
+                        unitRatio = rs.getInt("ratio");
+                    }
+                }
+
+                // Chuyển đổi số lượng từ hóa đơn (Ví dụ: 2 Thùng) thành số lượng hạt nhân (48
+                // Chai)
+                int requiredQuantityInBaseUnit = detail.getQuantity() * unitRatio;
+
+                // Gọi hàm bẻ lô FEFO trừ theo đơn vị hạt nhân lẻ
                 inventoryService.deductStockFEFO(
                         storeId,
                         detail.getProductId(),
-                        detail.getQuantity(),
+                        requiredQuantityInBaseUnit,
                         inv.getId(),
-                        detail.getUnitId(), // Gửi thêm để lưu chi tiết lô
-                        detail.getPriceAtSale() // Gửi thêm để tính tiền từng lô
-
-                );
+                        detail.getUnitId(),
+                        detail.getPriceAtSale());
             }
 
             conn.commit();
@@ -121,6 +138,12 @@ public class InvoiceServiceImpl implements InvoiceService {
             }
             throw e;
         } finally {
+            try {
+                if (psGetRatio != null) {
+                    psGetRatio.close();
+                }
+            } catch (SQLException ignored) {
+            }
             try {
                 conn.setAutoCommit(previousAutoCommit);
             } catch (SQLException ignored) {
@@ -152,35 +175,86 @@ public class InvoiceServiceImpl implements InvoiceService {
         if (quantity <= 0) {
             throw new ValidationException("Số lượng phải > 0");
         }
+
+        // 1. Quét mã vạch để tìm thông tin đơn vị tính (Unit) đang bán
         Optional<ProductUnit> unitOpt = BarcodeUtil.scanProduct(barcode);
         if (unitOpt.isEmpty()) {
             throw new NotFoundException("Không tìm thấy sản phẩm với barcode: " + barcode);
         }
         ProductUnit unit = unitOpt.get();
-        Optional<StoreInventory> invOpt = inventoryRepo.findByStoreAndProduct(storeId, unit.getProductId());
-        if (invOpt.isEmpty() || invOpt.get().getQuantity() < quantity) {
-            throw new IllegalStateException("Không đủ tồn kho cho sản phẩm ID " + unit.getProductId());
+        int productId = unit.getProductId();
+        int unitRatio = unit.getRatio(); // Lấy hệ số quy đổi động (Ví dụ: Thùng = 24, Chai = 1)
+
+        // 2. Quy đổi số lượng khách mua ra số lượng đơn vị nhỏ nhất (Hạt nhân)
+        int totalRequiredQuantityInBaseUnit = quantity * unitRatio;
+
+        // 3. ĐÃ SỬA: Tính TỔNG số lượng tồn kho thực tế của TẤT CẢ CÁC LÔ cộng lại
+        int totalAvailableStock = 0;
+        Connection conn = util.DatabaseUtil.getConnection();
+        boolean previousAutoCommit = conn.getAutoCommit();
+
+        String sqlSumStock = "SELECT SUM(quantity) FROM store_inventory WHERE store_id = ? AND product_id = ?";
+        try (PreparedStatement psSum = conn.prepareStatement(sqlSumStock)) {
+            psSum.setInt(1, storeId);
+            psSum.setInt(2, productId);
+            try (ResultSet rsSum = psSum.executeQuery()) {
+                if (rsSum.next()) {
+                    totalAvailableStock = rsSum.getInt(1); // Lấy tổng lượng SUM của các lô
+                }
+            }
         }
+
+        // Kiểm tra xem tổng kho hạt nhân có đủ đáp ứng đơn hàng không
+        if (totalAvailableStock < totalRequiredQuantityInBaseUnit) {
+            throw new IllegalStateException("Không đủ tồn kho thực tế cho sản phẩm. Yêu cầu quy đổi hạt nhân: "
+                    + totalRequiredQuantityInBaseUnit + " lẻ, Hiện có tổng cộng tất cả các lô: " + totalAvailableStock
+                    + " lẻ");
+        }
+
+        // 4. Tính toán tổng tiền hóa đơn
         BigDecimal subtotal = unit.getSellingPrice().multiply(BigDecimal.valueOf(quantity));
+
         Invoice invoice = new Invoice();
         invoice.setStoreId(storeId);
         invoice.setEmployeeId(employeeId);
         invoice.setTotalAmount(subtotal);
         invoice.setStatus("completed");
-        if (!invoiceRepo.insert(invoice)) {
-            throw new RuntimeException("Tạo hóa đơn thất bại");
+
+        // 5. Thực hiện Transaction lưu hóa đơn và bẻ lô kho bằng FEFO
+        try {
+            conn.setAutoCommit(false);
+
+            // Chèn hóa đơn vào DB
+            if (!invoiceRepo.insert(invoice, conn)) {
+                throw new RuntimeException("Tạo hóa đơn thất bại");
+            }
+
+            // Ghi nhận chi tiết hóa đơn và bẻ nhỏ lô hàng theo thuật toán FEFO cận đát xuất
+            // trước
+            inventoryService.deductStockFEFO(
+                    storeId,
+                    productId,
+                    totalRequiredQuantityInBaseUnit, // Đẩy số lượng đã quy đổi hạt nhân nguyên vẹn vào đây
+                    invoice.getId(),
+                    unit.getId(),
+                    unit.getSellingPrice());
+
+            conn.commit();
+            return invoice;
+        } catch (Exception e) {
+            try {
+                conn.rollback();
+            } catch (SQLException rollbackEx) {
+                e.addSuppressed(rollbackEx);
+            }
+            throw new SQLException(
+                    "Quá trình xử lý bán hàng thất bại, hệ thống đã khôi phục trạng thái kho: " + e.getMessage(), e);
+        } finally {
+            try {
+                conn.setAutoCommit(previousAutoCommit);
+            } catch (SQLException ignored) {
+            }
+            util.DatabaseUtil.closeConnection();
         }
-        InvoiceDetail detail = new InvoiceDetail();
-        detail.setInvoiceId(invoice.getId());
-        detail.setProductId(unit.getProductId());
-        detail.setUnitId(unit.getId());
-        detail.setQuantity(quantity);
-        detail.setPriceAtSale(unit.getSellingPrice());
-        detail.setSubtotal(subtotal);
-        if (!detailRepo.insert(detail)) {
-            throw new RuntimeException("Thêm chi tiết hóa đơn thất bại");
-        }
-        inventoryRepo.adjustQuantity(storeId, unit.getProductId(), -quantity);
-        return invoice;
     }
 }

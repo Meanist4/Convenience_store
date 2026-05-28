@@ -8,23 +8,26 @@ public class PurchaseOrderDetail {
     private int purchaseOrderId;
     private int productId;
     private int quantity;
-    private Date expiryDate;     // Thêm mới: Hạn sử dụng của sản phẩm
-    private String batchCode;    // Thêm mới: Mã lô hàng
     private BigDecimal importPriceAtTime;
     private BigDecimal subtotal;
+
+    // ── Deferred Product Creation Fields ──────────────────────────
+    private String rawBarcode; // Raw barcode for new products (hand-typed)
+    private String tempProductName; // Temporary product name for new items
+    private String tempCategory; // Temporary category for new items
+    private String tempBaseUnit; // Temporary base unit for new items
+    private BigDecimal tempMarkupRate; // Temporary markup rate for new items
 
     // ── Constructors ──────────────────────────────────────────────
     public PurchaseOrderDetail() {
     }
 
-    public PurchaseOrderDetail(int id, int purchaseOrderId, int productId, int quantity, 
-                               Date expiryDate, String batchCode, BigDecimal importPriceAtTime, BigDecimal subtotal) {
+    public PurchaseOrderDetail(int id, int purchaseOrderId, int productId, int quantity,
+            BigDecimal importPriceAtTime, BigDecimal subtotal) {
         this.id = id;
         this.purchaseOrderId = purchaseOrderId;
         this.productId = productId;
         this.quantity = quantity;
-        this.expiryDate = expiryDate;   // Khởi tạo thuộc tính mới
-        this.batchCode = batchCode;     // Khởi tạo thuộc tính mới
         this.importPriceAtTime = importPriceAtTime;
         this.subtotal = subtotal;
     }
@@ -62,22 +65,6 @@ public class PurchaseOrderDetail {
         this.quantity = quantity;
     }
 
-    public Date getExpiryDate() { // Getter mới
-        return expiryDate;
-    }
-
-    public void setExpiryDate(Date expiryDate) { // Setter mới
-        this.expiryDate = expiryDate;
-    }
-
-    public String getBatchCode() { // Getter mới
-        return batchCode;
-    }
-
-    public void setBatchCode(String batchCode) { // Setter mới
-        this.batchCode = batchCode;
-    }
-
     public BigDecimal getImportPriceAtTime() {
         return importPriceAtTime;
     }
@@ -94,6 +81,47 @@ public class PurchaseOrderDetail {
         this.subtotal = subtotal;
     }
 
+    // ── Deferred Creation Getters & Setters ───────────────────────
+    public String getRawBarcode() {
+        return rawBarcode;
+    }
+
+    public void setRawBarcode(String rawBarcode) {
+        this.rawBarcode = rawBarcode;
+    }
+
+    public String getTempProductName() {
+        return tempProductName;
+    }
+
+    public void setTempProductName(String tempProductName) {
+        this.tempProductName = tempProductName;
+    }
+
+    public String getTempCategory() {
+        return tempCategory;
+    }
+
+    public void setTempCategory(String tempCategory) {
+        this.tempCategory = tempCategory;
+    }
+
+    public String getTempBaseUnit() {
+        return tempBaseUnit;
+    }
+
+    public void setTempBaseUnit(String tempBaseUnit) {
+        this.tempBaseUnit = tempBaseUnit;
+    }
+
+    public BigDecimal getTempMarkupRate() {
+        return tempMarkupRate;
+    }
+
+    public void setTempMarkupRate(BigDecimal tempMarkupRate) {
+        this.tempMarkupRate = tempMarkupRate;
+    }
+
     // ── toString ──────────────────────────────────────────────────
     @Override
     public String toString() {
@@ -102,10 +130,13 @@ public class PurchaseOrderDetail {
                 ", purchaseOrderId=" + purchaseOrderId +
                 ", productId=" + productId +
                 ", quantity=" + quantity +
-                ", expiryDate=" + expiryDate +   // Cập nhật toString
-                ", batchCode='" + batchCode + '\'' + // Cập nhật toString
                 ", importPriceAtTime=" + importPriceAtTime +
                 ", subtotal=" + subtotal +
+                ", rawBarcode='" + rawBarcode + '\'' +
+                ", tempProductName='" + tempProductName + '\'' +
+                ", tempCategory='" + tempCategory + '\'' +
+                ", tempBaseUnit='" + tempBaseUnit + '\'' +
+                ", tempMarkupRate=" + tempMarkupRate +
                 '}';
     }
 }

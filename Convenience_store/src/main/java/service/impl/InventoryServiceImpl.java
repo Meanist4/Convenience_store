@@ -1,5 +1,6 @@
 package service.impl;
 
+import entity.InvoiceDetail;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
@@ -9,8 +10,11 @@ import entity.ProductUnit;
 import entity.StoreInventory;
 import exception.NotFoundException;
 import exception.ValidationException;
+import java.math.BigDecimal;
+import java.sql.Connection;
 import repository.InventoryRepository;
 import repository.InventoryRepositoryImpl;
+import repository.InvoiceDetailRepository;
 import repository.NotificationRepository;
 import repository.ProductRepository;
 import repository.StoreRepository;
@@ -18,10 +22,12 @@ import service.InventoryService;
 import util.BarcodeUtil;
 
 public class InventoryServiceImpl implements InventoryService {
+
     private final InventoryRepository inventoryRepo = new InventoryRepositoryImpl();
     private final StoreRepository storeRepo = new StoreRepository();
     private final ProductRepository productRepo = new ProductRepository();
     private final NotificationRepository notificationRepo = new NotificationRepository();
+    private final InvoiceDetailRepository detailRepo = new InvoiceDetailRepository();
 
     @Override
     public List<StoreInventory> getInventoryByStore(int storeId) throws SQLException {
@@ -34,7 +40,8 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
-    public void deductStockFEFO(int storeId, int productId, int requiredQty, int invoiceId) throws SQLException {
+    public void deductStockFEFO(int storeId, int productId, int requiredQty, int invoiceId, int unitId,
+            BigDecimal priceAtSale) throws SQLException {
         if (requiredQty <= 0) {
             throw new IllegalArgumentException("Số lượng cần trừ phải lớn hơn 0");
         }
@@ -46,29 +53,42 @@ public class InventoryServiceImpl implements InventoryService {
         List<StoreInventory> activeBatches = inventoryRepo.findAvailableBatches(storeId, productId);
         int remainingToDeduct = requiredQty;
 
+        // Lấy connection hiện tại từ luồng ThreadLocal ra để dùng cho lệnh chèn chi
+        // tiết hóa đơn
+        Connection currentConn = util.DatabaseUtil.getConnection();
+
         for (StoreInventory batch : activeBatches) {
-            if (remainingToDeduct <= 0)
+            if (remainingToDeduct <= 0) {
                 break;
+            }
 
             int currentBatchQty = batch.getQuantity();
             int deductedFromThisBatch = 0;
 
             if (currentBatchQty <= remainingToDeduct) {
-                // Tình huống 1: Lô này không đủ hoặc vừa khít -> Trừ hết sạch lô này về 0
                 deductedFromThisBatch = currentBatchQty;
                 remainingToDeduct -= currentBatchQty;
                 inventoryRepo.updateQuantity(batch.getId(), 0);
             } else {
-                // Tình huống 2: Lô này thừa sức cân -> Chỉ cấu nốt phần còn thiếu
                 deductedFromThisBatch = remainingToDeduct;
                 inventoryRepo.updateQuantity(batch.getId(), currentBatchQty - remainingToDeduct);
                 remainingToDeduct = 0;
             }
+            InvoiceDetail batchDetail = new InvoiceDetail();
+            batchDetail.setInvoiceId(invoiceId);
+            batchDetail.setProductId(productId);
+            batchDetail.setUnitId(unitId);
+            batchDetail.setQuantity(deductedFromThisBatch);
+            batchDetail.setPriceAtSale(priceAtSale);
+            batchDetail.setSubtotal(priceAtSale.multiply(BigDecimal.valueOf(deductedFromThisBatch)));
+            batchDetail.setInventoryId(batch.getId());
 
+            if (!detailRepo.insert(batchDetail, currentConn)) {
+                throw new RuntimeException("Thêm chi tiết hóa đơn theo lô thất bại");
+            }
         }
 
         checkAndNotifyLowStock(storeId, productId);
-
     }
 
     @Override

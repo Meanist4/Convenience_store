@@ -93,18 +93,7 @@ public class Supplier {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Supplier{");
-        sb.append("id=").append(id);
-        sb.append(", supplierName=").append(supplierName);
-        sb.append(", contactPerson=").append(contactPerson);
-        sb.append(", phone=").append(phone);
-        sb.append(", email=").append(email);
-        sb.append(", address=").append(address);
-        sb.append(", isDeleted=").append(isDeleted);
-        sb.append(", deletedAt=").append(deletedAt);
-        sb.append('}');
-        return sb.toString();
+        return this.id + " - " + this.supplierName;
     }
 
 }

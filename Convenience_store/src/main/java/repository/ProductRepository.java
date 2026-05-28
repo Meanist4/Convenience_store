@@ -194,4 +194,65 @@ public class ProductRepository {
         }
         return false;
     }
+
+    public int getOrCreateProductIdByName(String productName, String category, String baseUnit, BigDecimal importPrice)
+            throws SQLException {
+        String checkSql = "SELECT id FROM products WHERE product_name = ? AND is_deleted = 0";
+        try (Connection con = util.DatabaseUtil.getConnection();
+                PreparedStatement ps = con.prepareStatement(checkSql)) {
+            ps.setString(1, productName);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("id"); // Có rồi thì trả về ID cũ để sài luôn
+                }
+            }
+        }
+        String insertSql = "INSERT INTO products (product_name, category, base_unit, import_price, markup_rate, status) VALUES (?, ?, ?, ?, ?, ?)";
+        try (Connection con = util.DatabaseUtil.getConnection();
+                PreparedStatement ps = con.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
+
+            ps.setString(1, productName);
+            // Nếu giao diện truyền category/baseUnit trống thì gán giá trị mặc định để
+            // tránh lỗi Null dưới DB
+            ps.setString(2, (category != null && !category.isEmpty()) ? category : "Mặt hàng mới");
+            ps.setString(3, (baseUnit != null && !baseUnit.isEmpty()) ? baseUnit : "Cái");
+            ps.setBigDecimal(4, importPrice != null ? importPrice : BigDecimal.ZERO);
+            ps.setBigDecimal(5, new BigDecimal("0.2")); // Mặc định biên lợi nhuận 20% hoặc tùy bạn thay đổi
+            ps.setString(6, "active");
+
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) {
+                    return keys.getInt(1); // Trả về ID mới tinh vừa sinh ra dưới DB
+                }
+            }
+        }
+        throw new SQLException("Thất bại khi tự động tạo danh mục sản phẩm mới.");
+    }
+
+    /**
+     * Insert a new product within an existing transaction.
+     * Returns the auto-generated product_id.
+     */
+    public int insertWithConnection(Product p, Connection conn) throws SQLException {
+        String sql = "INSERT INTO products (product_name, category, base_unit, import_price, markup_rate, image_name, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, p.getProductName());
+            ps.setString(2, p.getCategory());
+            ps.setString(3, p.getBaseUnit());
+            ps.setBigDecimal(4, p.getImportPrice());
+            ps.setBigDecimal(5, p.getMarkupRate());
+            ps.setString(6, p.getImageName() != null ? p.getImageName() : "default.png");
+            ps.setString(7, p.getStatus() != null ? p.getStatus() : "active");
+            int rows = ps.executeUpdate();
+            if (rows > 0) {
+                try (ResultSet keys = ps.getGeneratedKeys()) {
+                    if (keys.next()) {
+                        return keys.getInt(1);
+                    }
+                }
+            }
+        }
+        throw new SQLException("Failed to insert product");
+    }
 }

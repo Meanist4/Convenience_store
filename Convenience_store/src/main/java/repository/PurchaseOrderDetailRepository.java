@@ -22,6 +22,14 @@ public class PurchaseOrderDetailRepository {
         detail.setQuantity(rs.getInt("quantity"));
         detail.setImportPriceAtTime(rs.getBigDecimal("import_price_at_time"));
         detail.setSubtotal(rs.getBigDecimal("subtotal"));
+
+        // ── Map Deferred Creation Fields ──────────────────────────
+        detail.setRawBarcode(rs.getString("raw_barcode"));
+        detail.setTempProductName(rs.getString("temp_product_name"));
+        detail.setTempCategory(rs.getString("temp_category"));
+        detail.setTempBaseUnit(rs.getString("temp_base_unit"));
+        detail.setTempMarkupRate(rs.getBigDecimal("temp_markup_rate"));
+
         return detail;
     }
 
@@ -68,14 +76,20 @@ public class PurchaseOrderDetailRepository {
 
     public boolean insert(PurchaseOrderDetail detail, Connection con) throws SQLException {
         String sql = "INSERT INTO purchase_order_details " +
-                "(purchase_order_id, product_id, quantity, import_price_at_time, subtotal) " +
-                "VALUES (?, ?, ?, ?, ?)";
+                "(purchase_order_id, product_id, quantity, import_price_at_time, subtotal, " +
+                "raw_barcode, temp_product_name, temp_category, temp_base_unit, temp_markup_rate) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, detail.getPurchaseOrderId());
             ps.setInt(2, detail.getProductId());
             ps.setInt(3, detail.getQuantity());
             ps.setBigDecimal(4, detail.getImportPriceAtTime());
             ps.setBigDecimal(5, detail.getSubtotal());
+            ps.setString(6, detail.getRawBarcode());
+            ps.setString(7, detail.getTempProductName());
+            ps.setString(8, detail.getTempCategory());
+            ps.setString(9, detail.getTempBaseUnit());
+            ps.setBigDecimal(10, detail.getTempMarkupRate());
             int rows = ps.executeUpdate();
             if (rows > 0) {
                 try (ResultSet keys = ps.getGeneratedKeys()) {
@@ -90,8 +104,9 @@ public class PurchaseOrderDetailRepository {
 
     public boolean insert(PurchaseOrderDetail detail) throws SQLException {
         String sql = "INSERT INTO purchase_order_details " +
-                "(purchase_order_id, product_id, quantity, import_price_at_time, subtotal) " +
-                "VALUES (?, ?, ?, ?, ?)";
+                "(purchase_order_id, product_id, quantity, import_price_at_time, subtotal, " +
+                "raw_barcode, temp_product_name, temp_category, temp_base_unit, temp_markup_rate) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection con = util.DatabaseUtil.getConnection();
                 PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, detail.getPurchaseOrderId());
@@ -99,6 +114,11 @@ public class PurchaseOrderDetailRepository {
             ps.setInt(3, detail.getQuantity());
             ps.setBigDecimal(4, detail.getImportPriceAtTime());
             ps.setBigDecimal(5, detail.getSubtotal());
+            ps.setString(6, detail.getRawBarcode());
+            ps.setString(7, detail.getTempProductName());
+            ps.setString(8, detail.getTempCategory());
+            ps.setString(9, detail.getTempBaseUnit());
+            ps.setBigDecimal(10, detail.getTempMarkupRate());
             int rows = ps.executeUpdate();
             if (rows > 0) {
                 try (ResultSet keys = ps.getGeneratedKeys()) {
@@ -154,5 +174,34 @@ public class PurchaseOrderDetailRepository {
             }
         }
         return BigDecimal.ZERO;
+    }
+
+    /**
+     * Lookup product_id by raw barcode in the product_units table.
+     * Returns -1 if not found.
+     */
+    public int lookupProductIdByBarcode(String rawBarcode, Connection conn) throws SQLException {
+        String sql = "SELECT product_id FROM product_units WHERE barcode = ? AND is_deleted = 0 LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, rawBarcode);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("product_id");
+                }
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Update the detail record with the actual product_id after deferred creation.
+     */
+    public boolean updateProductId(int detailId, int productId, Connection conn) throws SQLException {
+        String sql = "UPDATE purchase_order_details SET product_id = ? WHERE id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, productId);
+            ps.setInt(2, detailId);
+            return ps.executeUpdate() > 0;
+        }
     }
 }

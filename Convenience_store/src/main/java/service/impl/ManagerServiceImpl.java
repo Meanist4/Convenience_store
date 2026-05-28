@@ -116,4 +116,3 @@ public class ManagerServiceImpl implements ManagerService {
             throw new IllegalArgumentException("Không tìm thấy manager hoặc đã bị xóa: id=" + id);
     }
 }
-

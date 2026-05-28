@@ -21,6 +21,7 @@ public class InvoiceDetailRepository {
         d.setQuantity(rs.getInt("quantity"));
         d.setPriceAtSale(rs.getBigDecimal("price_at_sale"));
         d.setSubtotal(rs.getBigDecimal("subtotal"));
+        d.setInventoryId(rs.getInt("inventory_id"));
         return d;
     }
 
@@ -31,12 +32,12 @@ public class InvoiceDetailRepository {
     public List<InvoiceDetail> findByInvoiceId(int invoiceId) throws SQLException {
         List<InvoiceDetail> list = new ArrayList<>();
         String sql = "SELECT * FROM invoice_details WHERE invoice_id = ?";
-        try (Connection con = util.DatabaseUtil.getConnection();
-                PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, invoiceId);
             try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next())
+                while (rs.next()) {
                     list.add(map(rs));
+                }
             }
         }
         return list;
@@ -44,12 +45,12 @@ public class InvoiceDetailRepository {
 
     public Optional<InvoiceDetail> findById(int id) throws SQLException {
         String sql = "SELECT * FROM invoice_details WHERE id = ?";
-        try (Connection con = util.DatabaseUtil.getConnection();
-                PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next())
+                if (rs.next()) {
                     return Optional.of(map(rs));
+                }
             }
         }
         return Optional.empty();
@@ -57,15 +58,15 @@ public class InvoiceDetailRepository {
 
     public List<InvoiceDetail> findByProductId(int productId) throws SQLException {
         List<InvoiceDetail> list = new ArrayList<>();
-        String sql = "SELECT id.* FROM invoice_details id " +
-                "JOIN invoices i ON i.id = id.invoice_id " +
-                "WHERE id.product_id = ? AND i.status = 'completed'";
-        try (Connection con = util.DatabaseUtil.getConnection();
-                PreparedStatement ps = con.prepareStatement(sql)) {
+        String sql = "SELECT id.* FROM invoice_details id "
+                + "JOIN invoices i ON i.id = id.invoice_id "
+                + "WHERE id.product_id = ? AND i.status = 'completed'";
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, productId);
             try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next())
+                while (rs.next()) {
                     list.add(map(rs));
+                }
             }
         }
         return list;
@@ -84,9 +85,8 @@ public class InvoiceDetailRepository {
     }
 
     public boolean insert(InvoiceDetail d, Connection con) throws SQLException {
-        String sql = "INSERT INTO invoice_details (invoice_id, product_id, unit_id, quantity, price_at_sale, subtotal) "
-                +
-                "VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO invoice_details (invoice_id, product_id, unit_id, quantity, price_at_sale, subtotal, inventory_id) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, d.getInvoiceId());
             ps.setInt(2, d.getProductId());
@@ -94,11 +94,19 @@ public class InvoiceDetailRepository {
             ps.setInt(4, d.getQuantity());
             ps.setBigDecimal(5, d.getPriceAtSale());
             ps.setBigDecimal(6, d.getSubtotal());
+
+            if (d.getInventoryId() > 0) {
+                ps.setInt(7, d.getInventoryId());
+            } else {
+                ps.setNull(7, java.sql.Types.INTEGER);
+            }
+
             int rows = ps.executeUpdate();
             if (rows > 0) {
                 try (ResultSet keys = ps.getGeneratedKeys()) {
-                    if (keys.next())
+                    if (keys.next()) {
                         d.setId(keys.getInt(1));
+                    }
                 }
                 return true;
             }
@@ -107,11 +115,9 @@ public class InvoiceDetailRepository {
     }
 
     public boolean insertBatch(List<InvoiceDetail> details) throws SQLException {
-        String sql = "INSERT INTO invoice_details (invoice_id, product_id, unit_id, quantity, price_at_sale, subtotal) "
-                +
-                "VALUES (?, ?, ?, ?, ?, ?)";
-        try (Connection con = util.DatabaseUtil.getConnection();
-                PreparedStatement ps = con.prepareStatement(sql)) {
+        String sql = "INSERT INTO invoice_details (invoice_id, product_id, unit_id, quantity, price_at_sale, subtotal, inventory_id) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             con.setAutoCommit(false);
             for (InvoiceDetail d : details) {
                 ps.setInt(1, d.getInvoiceId());
@@ -120,22 +126,29 @@ public class InvoiceDetailRepository {
                 ps.setInt(4, d.getQuantity());
                 ps.setBigDecimal(5, d.getPriceAtSale());
                 ps.setBigDecimal(6, d.getSubtotal());
+
+                if (d.getInventoryId() > 0) {
+                    ps.setInt(7, d.getInventoryId());
+                } else {
+                    ps.setNull(7, java.sql.Types.INTEGER);
+                }
                 ps.addBatch();
             }
             int[] result = ps.executeBatch();
             con.commit();
             con.setAutoCommit(true);
-            for (int r : result)
-                if (r <= 0)
+            for (int r : result) {
+                if (r <= 0) {
                     return false;
+                }
+            }
             return true;
         }
     }
 
     public boolean deleteByInvoiceId(int invoiceId) throws SQLException {
         String sql = "DELETE FROM invoice_details WHERE invoice_id = ?";
-        try (Connection con = util.DatabaseUtil.getConnection();
-                PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = util.DatabaseUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, invoiceId);
             return ps.executeUpdate() > 0;
         }

@@ -21,6 +21,7 @@ import repository.InvoiceRepository;
 import util.BarcodeUtil;
 
 public class InvoiceServiceImpl implements InvoiceService {
+
     private final InvoiceRepository invoiceRepo = new InvoiceRepository();
     private final InvoiceDetailRepository detailRepo = new InvoiceDetailRepository();
     private final InventoryRepository inventoryRepo = new InventoryRepositoryImpl();
@@ -48,8 +49,9 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     @Override
     public List<Invoice> getInvoicesByDateRange(Timestamp from, Timestamp to) throws SQLException {
-        if (from.after(to))
+        if (from.after(to)) {
             throw new IllegalArgumentException("Ngày bắt đầu phải trước ngày kết thúc");
+        }
         return invoiceRepo.findByDateRange(from, to);
     }
 
@@ -70,8 +72,9 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     @Override
     public Invoice createInvoice(int storeId, int employeeId, List<InvoiceDetail> details) throws SQLException {
-        if (details == null || details.isEmpty())
+        if (details == null || details.isEmpty()) {
             throw new IllegalArgumentException("Hóa đơn phải có ít nhất một sản phẩm");
+        }
 
         BigDecimal total = details.stream()
                 .map(InvoiceDetail::getSubtotal)
@@ -89,14 +92,23 @@ public class InvoiceServiceImpl implements InvoiceService {
         try {
             conn.setAutoCommit(false);
 
-            if (!invoiceRepo.insert(inv, conn))
+            if (!invoiceRepo.insert(inv, conn)) {
                 throw new RuntimeException("Tạo hóa đơn thất bại");
+            }
 
             for (InvoiceDetail detail : details) {
                 detail.setInvoiceId(inv.getId());
-                inventoryService.deductStockFEFO(storeId, detail.getProductId(), detail.getQuantity(), inv.getId());
-                if (!detailRepo.insert(detail, conn))
-                    throw new RuntimeException("Thêm chi tiết hóa đơn thất bại");
+
+                // Gọi hàm bẻ lô (Chỉ truyền thêm thông tin nghiệp vụ, KHÔNG truyền Connection)
+                inventoryService.deductStockFEFO(
+                        storeId,
+                        detail.getProductId(),
+                        detail.getQuantity(),
+                        inv.getId(),
+                        detail.getUnitId(), // Gửi thêm để lưu chi tiết lô
+                        detail.getPriceAtSale() // Gửi thêm để tính tiền từng lô
+
+                );
             }
 
             conn.commit();
@@ -120,37 +132,44 @@ public class InvoiceServiceImpl implements InvoiceService {
     @Override
     public void cancelInvoice(int id) throws SQLException {
         invoiceRepo.findById(id).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hóa đơn id=" + id));
-        if (!invoiceRepo.cancelInvoice(id))
+        if (!invoiceRepo.cancelInvoice(id)) {
             throw new IllegalStateException("Hóa đơn đã hủy hoặc không thể hủy");
+        }
     }
 
     @Override
     public void updateTotalAmount(int id, BigDecimal totalAmount) throws SQLException {
-        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) < 0)
+        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Tổng tiền không hợp lệ");
-        if (!invoiceRepo.updateTotalAmount(id, totalAmount))
+        }
+        if (!invoiceRepo.updateTotalAmount(id, totalAmount)) {
             throw new RuntimeException("Cập nhật tổng tiền thất bại");
+        }
     }
 
     @Override
     public Invoice processSale(int storeId, int employeeId, String barcode, int quantity) throws SQLException {
-        if (quantity <= 0)
+        if (quantity <= 0) {
             throw new ValidationException("Số lượng phải > 0");
+        }
         Optional<ProductUnit> unitOpt = BarcodeUtil.scanProduct(barcode);
-        if (unitOpt.isEmpty())
+        if (unitOpt.isEmpty()) {
             throw new NotFoundException("Không tìm thấy sản phẩm với barcode: " + barcode);
+        }
         ProductUnit unit = unitOpt.get();
         Optional<StoreInventory> invOpt = inventoryRepo.findByStoreAndProduct(storeId, unit.getProductId());
-        if (invOpt.isEmpty() || invOpt.get().getQuantity() < quantity)
+        if (invOpt.isEmpty() || invOpt.get().getQuantity() < quantity) {
             throw new IllegalStateException("Không đủ tồn kho cho sản phẩm ID " + unit.getProductId());
+        }
         BigDecimal subtotal = unit.getSellingPrice().multiply(BigDecimal.valueOf(quantity));
         Invoice invoice = new Invoice();
         invoice.setStoreId(storeId);
         invoice.setEmployeeId(employeeId);
         invoice.setTotalAmount(subtotal);
         invoice.setStatus("completed");
-        if (!invoiceRepo.insert(invoice))
+        if (!invoiceRepo.insert(invoice)) {
             throw new RuntimeException("Tạo hóa đơn thất bại");
+        }
         InvoiceDetail detail = new InvoiceDetail();
         detail.setInvoiceId(invoice.getId());
         detail.setProductId(unit.getProductId());
@@ -158,8 +177,9 @@ public class InvoiceServiceImpl implements InvoiceService {
         detail.setQuantity(quantity);
         detail.setPriceAtSale(unit.getSellingPrice());
         detail.setSubtotal(subtotal);
-        if (!detailRepo.insert(detail))
+        if (!detailRepo.insert(detail)) {
             throw new RuntimeException("Thêm chi tiết hóa đơn thất bại");
+        }
         inventoryRepo.adjustQuantity(storeId, unit.getProductId(), -quantity);
         return invoice;
     }

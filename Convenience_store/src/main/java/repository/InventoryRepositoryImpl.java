@@ -115,7 +115,8 @@ public class InventoryRepositoryImpl implements InventoryRepository {
 
     @Override
     public int findTotalQuantity(int storeId, int productId) throws SQLException {
-        String sql = "SELECT COALESCE(SUM(quantity), 0) FROM store_inventory WHERE store_id = ? AND product_id = ?";
+        String sql = "SELECT COALESCE(SUM(quantity), 0) FROM store_inventory "
+                + "WHERE store_id = ? AND product_id = ? AND quantity > 0";
 
         Connection conn = DatabaseUtil.getConnection();
         boolean closeConnection = shouldClose(conn);
@@ -284,5 +285,35 @@ public class InventoryRepositoryImpl implements InventoryRepository {
         }
 
         return result;
+    }
+
+    @Override
+    public boolean insertWithConnection(StoreInventory inventory, Connection conn) throws SQLException {
+        String sql = "INSERT INTO store_inventory (store_id, product_id, batch_code, quantity, import_price, expiry_date, received_at, min_stock_level) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, inventory.getStoreId());
+            ps.setInt(2, inventory.getProductId());
+            ps.setString(3, inventory.getBatchCode());
+            ps.setInt(4, inventory.getQuantity());
+            if (inventory.getImportPrice() != null) {
+                ps.setBigDecimal(5, inventory.getImportPrice());
+            } else {
+                ps.setNull(5, java.sql.Types.DECIMAL);
+            }
+            if (inventory.getExpiryDate() != null) {
+                ps.setDate(6, new Date(inventory.getExpiryDate().getTime()));
+            } else {
+                ps.setNull(6, java.sql.Types.DATE);
+            }
+            if (inventory.getReceivedAt() != null) {
+                ps.setDate(7, new Date(inventory.getReceivedAt().getTime()));
+            } else {
+                ps.setDate(7, new Date(System.currentTimeMillis()));
+            }
+            ps.setInt(8, inventory.getMinStockLevel());
+            return ps.executeUpdate() > 0;
+        }
     }
 }

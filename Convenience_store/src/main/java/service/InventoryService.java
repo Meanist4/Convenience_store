@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import entity.StoreInventory;
+import java.math.BigDecimal;
 
 public interface InventoryService {
     List<StoreInventory> getInventoryByStore(int storeId) throws SQLException;
@@ -29,5 +30,6 @@ public interface InventoryService {
 
     void processInventoryScan(String barcode, int storeId, int quantity) throws SQLException;
 
-    void deductStockFEFO(int storeId, int productId, int requiredQty, int invoiceId) throws SQLException;
+    void deductStockFEFO(int storeId, int productId, int requiredQty, int invoiceId, int unitId, BigDecimal priceAtSale)
+            throws SQLException;
 }

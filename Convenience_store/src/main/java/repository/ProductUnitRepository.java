@@ -165,4 +165,49 @@ public class ProductUnitRepository {
             ps.executeUpdate();
         }
     }
+
+    public void createProductUnitIfNotExist(int productId, String unitName, String barcode, BigDecimal sellingPrice)
+            throws Exception {
+        String checkSql = "SELECT id FROM product_units WHERE barcode = ? AND is_deleted = 0";
+        try (Connection con = util.DatabaseUtil.getConnection();
+                PreparedStatement ps = con.prepareStatement(checkSql)) {
+            ps.setString(1, util.ShortHash.ProductBarcodeHash(barcode));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return; // Nếu mã vạch này đã được đăng ký rồi thì thôi, thoát ra
+                }
+            }
+        }
+        String insertSql = "INSERT INTO product_units (product_id, unit_name, ratio, barcode, selling_price, is_default_sale) VALUES (?, ?, 1, ?, ?, TRUE)";
+        try (Connection con = util.DatabaseUtil.getConnection();
+                PreparedStatement ps = con.prepareStatement(insertSql)) {
+            ps.setInt(1, productId);
+            ps.setString(2, (unitName != null && !unitName.isEmpty()) ? unitName : "Cái");
+            ps.setString(3, util.ShortHash.ProductBarcodeHash(barcode));
+            ps.setBigDecimal(4, sellingPrice);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Insert a new product unit within an existing transaction.
+     * Uses the provided connection to stay within the transaction boundary.
+     */
+    public void insertWithConnection(ProductUnit u, Connection conn) throws SQLException {
+        String sql = "INSERT INTO product_units (product_id, unit_name, ratio, barcode, selling_price, is_default_sale) VALUES (?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, u.getProductId());
+            ps.setString(2, u.getUnitName());
+            ps.setInt(3, u.getRatio());
+            try {
+                ps.setString(4, ShortHash.ProductBarcodeHash(u.getBarcode()));
+            } catch (Exception e) {
+                throw new SQLException("Lỗi khi băm mã vạch sản phẩm: " + e.getMessage(), e);
+            }
+
+            ps.setBigDecimal(5, u.getSellingPrice());
+            ps.setBoolean(6, u.isDefaultSale());
+            ps.executeUpdate();
+        }
+    }
 }

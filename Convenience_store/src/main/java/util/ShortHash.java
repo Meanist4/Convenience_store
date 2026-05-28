@@ -23,8 +23,13 @@ public class ShortHash {
         return "PRO-" + getBarcodeData(uniqueNumber);
     }
 
-    
     public static String EmployeeBarcodeHash(String uniqueNumber) throws Exception {
         return "EMP-" + getBarcodeData(uniqueNumber);
+    }
+
+    public static String BatchBarcodeHash(int orderId, int productId) throws Exception {
+        // Kết hợp mã đơn và mã sản phẩm cùng thời gian chạy để tạo chuỗi độc nhất
+        String uniqueKey = "ORD" + orderId + "PROD" + productId + "TIME" + System.nanoTime();
+        return "LOT-" + getBarcodeData(uniqueKey);
     }
 }

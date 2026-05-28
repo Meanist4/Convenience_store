@@ -19,7 +19,6 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepo = new ProductRepository();
     private final ProductUnitRepository unitRepo = new ProductUnitRepository();
-    
 
     @Override
     public List<Product> getAllProducts() throws SQLException {
@@ -62,7 +61,7 @@ public class ProductServiceImpl implements ProductService {
 
         // Thêm tham số Statement.RETURN_GENERATED_KEYS để lấy ID tự tăng từ DB
         try (Connection conn = util.DatabaseUtil.getConnection(); // Thay bằng cách lấy Connection của bạn
-                 PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setString(1, product.getProductName());
             ps.setString(2, product.getCategory());
@@ -142,12 +141,12 @@ public class ProductServiceImpl implements ProductService {
     public Optional<ProductUnit> getDefaultUnit(int productId) throws SQLException {
         return unitRepo.findDefaultByProductId(productId);
     }
-    
-    
 
     @Override
     public ProductUnit addUnit(int productId, String unitName, int ratio,
-            String barcode, BigDecimal sellingPrice, boolean isDefault) throws SQLException, Exception { // <-- Thêm Exception ở đây
+            String barcode, BigDecimal sellingPrice, boolean isDefault) throws SQLException, Exception { // <-- Thêm
+                                                                                                         // Exception ở
+                                                                                                         // đây
 
         // BỎ đoạn check productRepo.findById cũ gây chặn luồng dữ liệu mới
         if (barcode != null && unitRepo.findByBarcode(barcode).isPresent()) {
@@ -162,7 +161,8 @@ public class ProductServiceImpl implements ProductService {
         u.setSellingPrice(sellingPrice);
         u.setDefaultSale(isDefault);
 
-        // Không nuốt lỗi nữa, nếu lỗi insert phải ném ra để giao diện hiển thị cho lập trình viên biết lỗi gì
+        // Không nuốt lỗi nữa, nếu lỗi insert phải ném ra để giao diện hiển thị cho lập
+        // trình viên biết lỗi gì
         if (!unitRepo.insert(u)) {
             throw new RuntimeException("Thêm đơn vị phụ vào cơ sở dữ liệu thất bại!");
         }

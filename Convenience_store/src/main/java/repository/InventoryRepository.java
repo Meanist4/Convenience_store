@@ -1,5 +1,6 @@
 package repository;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
@@ -8,6 +9,11 @@ import entity.StoreInventory;
 
 public interface InventoryRepository {
     boolean insert(StoreInventory inventory) throws SQLException;
+
+    /**
+     * Insert a new inventory record within an existing transaction.
+     */
+    boolean insertWithConnection(StoreInventory inventory, Connection conn) throws SQLException;
 
     List<StoreInventory> findAvailableBatches(int storeId, int productId) throws SQLException;
 
